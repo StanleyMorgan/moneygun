@@ -20,8 +20,8 @@ const metadata = {
 };
 
 // 3. Set the networks
-// Fix: Remove 'as const' to make the networks array mutable, which is required by WagmiAdapter and createAppKit.
-const networks = [mainnet, arbitrum];
+// The imported network configurations are readonly. Create a deep mutable copy to satisfy wagmi and appkit types.
+const networks = JSON.parse(JSON.stringify([mainnet, arbitrum]));
 
 // 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({
