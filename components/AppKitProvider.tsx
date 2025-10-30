@@ -1,7 +1,7 @@
 import React from 'react';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiProvider } from 'wagmi';
-import { arbitrum, mainnet } from 'wagmi/chains';
+import { arbitrum, mainnet } from '@reown/appkit/networks';
 import { QueryClient } from '@tanstack/query-core';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
@@ -24,8 +24,8 @@ if (projectId) {
   };
 
   // 3. Set the networks
-  // Fix: The `networks` array must be mutable. Using `as const` makes it readonly, causing a type error.
-  const networks = [mainnet, arbitrum];
+  // Fix: Use 'as const' to ensure a non-empty array type, which is required by `createAppKit`.
+  const networks = [mainnet, arbitrum] as const;
 
   // 4. Create Wagmi Adapter
   wagmiAdapterInstance = new WagmiAdapter({

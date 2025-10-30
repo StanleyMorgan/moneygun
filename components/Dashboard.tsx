@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Airdrop } from './types';
+import { Airdrop } from '../types';
 import AirdropCard from './AirdropCard';
 import { PlusIcon } from './icons/PlusIcon';
 
