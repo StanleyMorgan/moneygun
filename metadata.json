@@ -1,0 +1,5 @@
+{
+  "name": "Moneygun",
+  "description": "A mini-app for Farcaster to create and manage token airdrops with various eligibility criteria. Clean, minimalist design for easy configuration.",
+  "requestFramePermissions": []
+}
