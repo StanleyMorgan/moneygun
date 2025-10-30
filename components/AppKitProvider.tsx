@@ -1,7 +1,7 @@
 import React from 'react';
 import { createAppKit } from '@reown/appkit';
 import { WagmiProvider } from 'wagmi';
-import { arbitrum, mainnet } from '@reown/appkit/networks';
+import { base, celo } from '@reown/appkit/networks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
@@ -21,7 +21,7 @@ const metadata = {
 
 // 3. Set the networks
 // The imported network configurations are readonly. Create a deep mutable copy to satisfy wagmi and appkit types.
-const networks = JSON.parse(JSON.stringify([mainnet, arbitrum]));
+const networks = JSON.parse(JSON.stringify([base, celo]));
 
 // 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({
