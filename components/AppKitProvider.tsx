@@ -24,8 +24,8 @@ if (projectId) {
   };
 
   // 3. Set the networks
-  // Fix: Use 'as const' to infer a tuple type, which satisfies the non-empty array requirement for `createAppKit`.
-  const networks = [mainnet, arbitrum] as const;
+  // Fix: The `networks` array must be mutable. Using `as const` makes it readonly, causing a type error.
+  const networks = [mainnet, arbitrum];
 
   // 4. Create Wagmi Adapter
   wagmiAdapterInstance = new WagmiAdapter({
