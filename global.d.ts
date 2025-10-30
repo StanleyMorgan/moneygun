@@ -15,7 +15,8 @@ declare global {
     interface IntrinsicElements {
       // Fix: Update type definition for 'appkit-button' to include component-specific properties.
       'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        label?: string;
+        // Fix: Changed `label` to be a required property to match the expected type from AppKit.
+        label: string;
         disabled?: boolean;
         size?: 'sm' | 'md' | 'lg';
         loadingLabel?: string;

@@ -1,8 +1,11 @@
 import React from 'react';
 import { createAppKit } from '@reown/appkit';
 import { WagmiProvider } from 'wagmi';
-import { base, celo } from '@reown/appkit/networks';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// Fix: Import `base` and `celo` from `wagmi/chains` as they are not exported from `@reown/appkit/networks`.
+import { base, celo } from 'wagmi/chains';
+// Fix: Import `QueryClient` from `@tanstack/query-core` as it may not be exported from `@tanstack/react-query` in this environment.
+import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/query-core';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 
 // 0. Setup queryClient
@@ -15,7 +18,7 @@ const projectId = process.env.REOWN_PROJECT_ID;
 const metadata = {
   name: 'Moneygun',
   description: 'Moneygun for Farcaster',
-  url: 'https://web3modal.com', // origin must match your domain & subdomain
+  url: 'https://moneygun-mini.vercel.app/', // origin must match your domain & subdomain
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 };
 

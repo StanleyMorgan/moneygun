@@ -10,11 +10,11 @@
   "frame": {
     "version": "1",
     "name": "Moneygun",
-    "homeUrl": "https://mmoneygun-mini.vercel.app//",
-    "iconUrl": "https://moneygun-mini.vercel.app//favicon.svg",
-    "imageUrl": "https://moneygun-mini.vercel.app//hero.png",
+    "homeUrl": "https://moneygun-mini.vercel.app/",
+    "iconUrl": "https://moneygun-mini.vercel.app/favicon.svg",
+    "imageUrl": "https://moneygun-mini.vercel.app/hero.png",
     "buttonTitle": "Open Moneygun",
-    "splashImageUrl": "https://moneygun-mini.vercel.app//splash.png",
+    "splashImageUrl": "https://moneygun-mini.vercel.app/splash.png",
     "splashBackgroundColor": "#9333ea"
   }
 }
