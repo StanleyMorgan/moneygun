@@ -1,4 +1,7 @@
 declare global {
+  // Fix: Define ChainNamespace to resolve the "Cannot find name 'ChainNamespace'" error.
+  type ChainNamespace = 'eip155' | 'solana';
+
   interface ImportMetaEnv {
     readonly VITE_REOWN_PROJECT_ID: string;
   }
@@ -16,7 +19,8 @@ declare global {
         size?: 'sm' | 'md' | 'lg';
         loadingLabel?: string;
         balance?: 'show' | 'hide';
-        namespace?: string;
+        // Fix: Changed type from `string` to `ChainNamespace` to resolve incompatibility with AppKit's types.
+        namespace?: ChainNamespace;
       };
     }
   }
