@@ -1,11 +1,11 @@
 {
   "accountAssociation": {
-    "header": "TODO_REPLACE_WITH_YOUR_GENERATED_HEADER",
-    "payload": "TODO_REPLACE_WITH_YOUR_GENERATED_PAYLOAD",
-    "signature": "TODO_REPLACE_WITH_YOUR_GENERATED_SIGNATURE"
+    "header": "eyJmaWQiOjQ5MTk2MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDFDMUFjOWQ1NDk4NzgyRkZhODcwOTVCMWE0Mzg3RjE4NDZBZWREODYifQ",
+    "payload": "eyJkb21haW4iOiJtb25leWd1bi1taW5pLnZlcmNlbC5hcHAifQ",
+    "signature": "d4ND7xoOcVeT3oaHiwpZiIWC9Fk3IlVHP/91LmtcbHYQ83QvN+woju1bRUahho8QtwamJfOANAf9V/nVf+2a+Bw="
   },
   "baseBuilder": {
-    "allowedAddresses": "__VITE_ALLOWED_ADDRESSES__"
+    "ownerAddress": "__VITE_ALLOWED_ADDRESSES__"
   },
   "frame": {
     "version": "1",
