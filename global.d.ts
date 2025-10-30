@@ -9,7 +9,15 @@ declare global {
 
   namespace JSX {
     interface IntrinsicElements {
-      'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      // Fix: Update type definition for 'appkit-button' to include component-specific properties.
+      'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        label?: string;
+        disabled?: boolean;
+        size?: 'sm' | 'md' | 'lg';
+        loadingLabel?: string;
+        balance?: 'show' | 'hide';
+        namespace?: string;
+      };
     }
   }
 }
