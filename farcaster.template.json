@@ -7,24 +7,14 @@
   "baseBuilder": {
     "allowedAddresses": "__VITE_ALLOWED_ADDRESSES__"
   },
-  "miniapp": {
+  "frame": {
     "version": "1",
     "name": "Moneygun",
-    "homeUrl": "https://moneygun.vercel.app/",
-    "iconUrl": "https://moneygun.vercel.app/favicon.svg",
-    "splashImageUrl": "https://moneygun.vercel.app/splash.png",
-    "splashBackgroundColor": "#9333ea",
-    "subtitle": "Airdrops for Farcaster.",
-    "description": "A mini-app for Farcaster to create and manage token airdrops with various eligibility criteria. Clean, minimalist design for easy configuration.",
-    "screenshotUrls": [
-      "https://moneygun.vercel.app/screenshot.png"
-    ],
-    "primaryCategory": "utilities",
-    "tags": ["airdrop", "tokens", "farcaster", "web3", "utility"],
-    "heroImageUrl": "https://moneygun.vercel.app/hero.png",
-    "tagline": "Effortlessly create and manage token airdrops.",
-    "ogTitle": "Moneygun - Farcaster Airdrops",
-    "ogDescription": "Create and manage token airdrops with flexible eligibility criteria directly on Farcaster.",
-    "ogImageUrl": "https://moneygun.vercel.app/og-image.png"
+    "homeUrl": "https://mmoneygun-mini.vercel.app//",
+    "iconUrl": "https://moneygun-mini.vercel.app//favicon.svg",
+    "imageUrl": "https://moneygun-mini.vercel.app//hero.png",
+    "buttonTitle": "Open Moneygun",
+    "splashImageUrl": "https://moneygun-mini.vercel.app//splash.png",
+    "splashBackgroundColor": "#9333ea"
   }
 }

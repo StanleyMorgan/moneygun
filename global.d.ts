@@ -1,3 +1,6 @@
+// Fix: Import `React` to provide types for the JSX augmentation.
+import React from 'react';
+
 declare global {
   // Fix: Define ChainNamespace to resolve the "Cannot find name 'ChainNamespace'" error.
   type ChainNamespace = 'eip155' | 'solana';
