@@ -2,12 +2,10 @@ declare global {
   // Fix: Define ChainNamespace to resolve the "Cannot find name 'ChainNamespace'" error.
   type ChainNamespace = 'eip155' | 'solana';
 
-  interface ImportMetaEnv {
-    readonly VITE_REOWN_PROJECT_ID: string;
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
+  namespace NodeJS {
+    interface ProcessEnv {
+      readonly REOWN_PROJECT_ID: string;
+    }
   }
 
   namespace JSX {
