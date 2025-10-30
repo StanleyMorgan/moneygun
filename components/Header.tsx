@@ -1,6 +1,4 @@
-
 import React from 'react';
-import { FarcasterIcon } from './icons/FarcasterIcon';
 
 const Header: React.FC = () => {
   return (
@@ -15,10 +13,7 @@ const Header: React.FC = () => {
               for Farcaster
             </span>
           </div>
-          <button className="flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-            <FarcasterIcon className="w-4 h-4" />
-            Connect
-          </button>
+          <appkit-button />
         </div>
       </div>
     </header>
