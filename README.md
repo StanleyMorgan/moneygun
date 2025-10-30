@@ -1,0 +1,2 @@
+# moneygun
+Airdrop Manager MiniApp
