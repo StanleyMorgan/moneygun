@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Airdrop, AirdropStatus } from '../types';
+import { Airdrop, AirdropStatus } from './types';
 
 interface AirdropCardProps {
   airdrop: Airdrop;

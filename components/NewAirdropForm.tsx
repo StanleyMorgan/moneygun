@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Airdrop, AirdropStatus, EligibilityCriterion } from '../types';
+import { Airdrop, AirdropStatus, EligibilityCriterion } from './types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
 interface NewAirdropFormProps {

@@ -1,5 +1,12 @@
-// Fix: Wrap in `declare global` to correctly extend JSX types when file is treated as a module.
 declare global {
+  interface ImportMetaEnv {
+    readonly VITE_REOWN_PROJECT_ID: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+
   namespace JSX {
     interface IntrinsicElements {
       'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
@@ -7,5 +14,4 @@ declare global {
   }
 }
 
-// Fix: Add an empty export to ensure this file is treated as a module, which is required for `declare global` to work correctly.
 export {};

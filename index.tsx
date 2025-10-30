@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AppKitProvider } from './components/AppKitProvider';
-import './global.d';
+import './index.css';
 
 
 const rootElement = document.getElementById('root');
