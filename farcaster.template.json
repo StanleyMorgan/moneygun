@@ -11,20 +11,20 @@
     "version": "1",
     "name": "Moneygun",
     "homeUrl": "https://moneygun-mini.vercel.app/",
-    "iconUrl": "https://moneygun-mini.vercel.app/favicon.svg",
-    "splashImageUrl": "https://moneygun-mini.vercel.app/splash.png",
+    "iconUrl": "https://moneygun-mini.vercel.app/logo128.png",
+    "splashImageUrl": "https://moneygun-mini.vercel.app/logo128.png",
     "splashBackgroundColor": "#9333ea",
     "subtitle": "Effortlessly create and manage token airdrops on Farcaster.",
     "description": "A mini-app for Farcaster designed to make token airdrops simple, fast, and flexible. Target specific communities with a variety of on-chain and off-chain criteria using a clean, minimalist interface.",
     "screenshotUrls": [
-      "https://moneygun-mini.vercel.app/og-image.png"
+      "https://moneygun-mini.vercel.app/logo128.png"
     ],
     "primaryCategory": "utility",
     "tags": ["airdrop", "farcaster", "token", "utility"],
-    "heroImageUrl": "https://moneygun-mini.vercel.app/hero.png",
+    "heroImageUrl": "https://moneygun-mini.vercel.app/logo128.png",
     "tagline": "Airdrops for Farcaster, simplified.",
     "ogTitle": "Moneygun - Farcaster Airdrops",
     "ogDescription": "Effortlessly create and manage token airdrops.",
-    "ogImageUrl": "https://moneygun-mini.vercel.app/og-image.png"
+    "ogImageUrl": "https://moneygun-mini.vercel.app/logo128.png"
   }
 }
