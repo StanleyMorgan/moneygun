@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Airdrop, AirdropStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Airdrop, AirdropStatus, AirdropConfig } from '../types';
 import { CogIcon } from './icons/CogIcon';
 
 interface AirdropCardProps {
@@ -25,6 +25,31 @@ const getEligibilityText = (eligibility: Airdrop['eligibility']) => {
 }
 
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
+  const [config, setConfig] = useState<AirdropConfig | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (airdrop.configUrl) {
+      setIsLoading(true);
+      fetch(airdrop.configUrl)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return res.json();
+        })
+        .then((data: AirdropConfig) => {
+          setConfig(data);
+        })
+        .catch((error) => {
+          console.error(`Failed to fetch config for ${airdrop.name}:`, error);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [airdrop.configUrl, airdrop.name]);
+
 
   const renderClaimButton = () => {
     const baseClasses = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2";
@@ -80,6 +105,16 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {config?.action && (
+            <a
+              href={config.action.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+            >
+              {config.action.text}
+            </a>
+          )}
           {airdrop.configUrl && (
             <a 
               href={airdrop.configUrl}
@@ -112,8 +147,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           </div>
         </div>
         <div>
-          <span className="text-slate-400">Eligibility: </span> 
-          {getEligibilityText(airdrop.eligibility)}
+          <span className="text-slate-400">Description: </span> 
+          {isLoading ? (
+            <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
+          ) : config?.description ? (
+            config.description
+          ) : (
+            getEligibilityText(airdrop.eligibility)
+          )}
         </div>
       </div>
     </div>

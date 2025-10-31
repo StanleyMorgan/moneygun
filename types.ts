@@ -24,3 +24,25 @@ export interface Airdrop {
   createdAt: Date;
   configUrl?: string; // URL to the detailed JSON configuration
 }
+
+// Detailed configuration loaded from a JSON file
+export interface AirdropConfig {
+  name: string;
+  description: string;
+  network: string;
+  token: {
+    name: string;
+    symbol: string;
+    address: string;
+    decimals: number;
+  };
+  schedule: {
+    startTime: string;
+    endTime: string;
+  };
+  airdropContract: string;
+  action?: {
+    text: string;
+    url: string;
+  };
+}
