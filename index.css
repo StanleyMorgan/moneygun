@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Appkit Button Theming for Light Mode */
+  --appkit-border-radius: 0.5rem; /* Corresponds to Tailwind's rounded-lg */
+  --appkit-button-background: #ffffff;
+  --appkit-button-foreground: #1e293b; /* slate-800 */
+  --appkit-button-border: 1px solid #e2e8f0; /* slate-200 */
+  --appkit-button-hover-background: #f8fafc; /* slate-50 */
+  --appkit-button-hover-foreground: #1e293b; /* slate-800 */
+  --appkit-font-family: 'Inter', sans-serif;
+}

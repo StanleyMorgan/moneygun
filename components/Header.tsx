@@ -14,7 +14,7 @@ const Header: React.FC = () => {
             </span>
           </div>
           {/* Fix: Add the required 'label' property to appkit-button. */}
-          <appkit-button label="Connect Wallet" />
+          <appkit-button label="Connect Wallet" address="hide" />
         </div>
       </div>
     </header>

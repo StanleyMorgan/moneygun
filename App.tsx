@@ -1,10 +1,12 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import NewAirdropForm from './components/NewAirdropForm';
 import { Airdrop, AirdropStatus } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
+import Footer from './components/Footer';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
@@ -63,12 +65,13 @@ const App: React.FC = () => {
   const handleBackToDashboard = () => setView('dashboard');
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       <Header />
-      <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 w-full flex-grow">
         {view === 'dashboard' && <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />}
         {view === 'new-airdrop' && <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />}
       </main>
+      <Footer />
     </div>
   );
 };
