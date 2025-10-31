@@ -15,20 +15,16 @@ declare global {
     }
   }
 
-  // Augment the JSX namespace to include the 'appkit-button' custom element.
+  // Augment the JSX namespace to include the 'appkit-connect-button' custom element.
   namespace JSX {
     interface IntrinsicElements {
-      'appkit-button': React.DetailedHTMLProps<
+      'appkit-connect-button': React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement>,
         HTMLElement
       > & {
         label: string;
-        disabled?: boolean;
-        size?: 'sm' | 'md' | 'lg';
+        size?: 'sm' | 'md';
         loadingLabel?: string;
-        balance?: 'show' | 'hide';
-        address?: 'show' | 'hide';
-        namespace?: ChainNamespace;
       };
     }
   }

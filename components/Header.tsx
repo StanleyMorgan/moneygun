@@ -13,8 +13,8 @@ const Header: React.FC = () => {
               for Farcaster
             </span>
           </div>
-          {/* Fix: Add the required 'label' property to appkit-button. */}
-          <appkit-button label="Connect Wallet" address="hide" />
+          {/* Use the dedicated connect button component as per documentation */}
+          <appkit-connect-button label="Connect Wallet" />
         </div>
       </div>
     </header>
