@@ -43,6 +43,16 @@ if (projectId) {
     networks,
     projectId,
     metadata,
+    // Set theme programmatically as per Reown documentation
+    themeMode: 'light',
+    themeVariables: {
+      // FIX: There appears to be a mismatch between the library's TypeScript
+      // types and its documentation. Using `as any` to bypass the incorrect
+      // type checking and apply theme variables as specified in the docs.
+      '--apkt-accent': '#9333ea',
+      '--apkt-font-family': 'Inter, sans-serif',
+      '--apkt-border-radius-master': '0.5rem'
+    } as any,
     features: {
       analytics: true
     }
