@@ -12,6 +12,7 @@
     "name": "Moneygun",
     "homeUrl": "https://moneygun-mini.vercel.app/",
     "iconUrl": "https://moneygun-mini.vercel.app/logo128.png",
+    "imageUrl": "https://moneygun-mini.vercel.app/logo128.png",
     "splashImageUrl": "https://moneygun-mini.vercel.app/logo128.png",
     "splashBackgroundColor": "#9333ea",
     "subtitle": "Easy Farcaster airdrops.",
