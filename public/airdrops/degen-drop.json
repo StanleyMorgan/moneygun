@@ -14,7 +14,7 @@
   },
   "airdropContract": "0x1234567890AbCdEf1234567890AbCdEf12345678",
   "action": {
-    "text": "View Details",
+    "text": "Link",
     "url": "https://degen.tips/"
   }
 }
