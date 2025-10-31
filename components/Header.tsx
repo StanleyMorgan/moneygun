@@ -17,7 +17,7 @@ const Header: React.FC = () => {
           {isConnected ? (
             <appkit-button balance="show" />
           ) : (
-            <appkit-connect-button label="Connect Wallet" />
+            <appkit-connect-button label="Connect" />
           )}
         </div>
       </div>

@@ -1,3 +1,6 @@
+// FIX: Import React types to make them available for JSX namespace augmentation.
+import type React from 'react';
+
 // This file is converted into a module by adding `export {}`.
 // This allows for correct global augmentation using `declare global`.
 // This is the standard and most robust way to extend global types in TypeScript,

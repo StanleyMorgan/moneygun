@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import NewAirdropForm from './components/NewAirdropForm';
 import { Airdrop, AirdropStatus } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
+import Footer from './components/Footer';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
@@ -19,6 +20,7 @@ const App: React.FC = () => {
       eligibility: { type: 'followers', value: 'dwr.eth' },
       recipientCount: 1250,
       createdAt: new Date('2024-07-15T10:00:00Z'),
+      configUrl: '/airdrops/degen-drop.json',
     },
     {
       id: '2',
@@ -70,6 +72,7 @@ const App: React.FC = () => {
         {view === 'dashboard' && <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />}
         {view === 'new-airdrop' && <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />}
       </main>
+      <Footer />
     </div>
   );
 };

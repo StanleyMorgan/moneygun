@@ -22,4 +22,5 @@ export interface Airdrop {
   eligibility: EligibilityCriterion;
   recipientCount: number;
   createdAt: Date;
+  configUrl?: string; // URL to the detailed JSON configuration
 }

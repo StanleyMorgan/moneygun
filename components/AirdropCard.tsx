@@ -1,5 +1,7 @@
+
 import React from 'react';
 import { Airdrop, AirdropStatus } from '../types';
+import { CogIcon } from './icons/CogIcon';
 
 interface AirdropCardProps {
   airdrop: Airdrop;
@@ -77,7 +79,18 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
             Token: <span className="font-mono bg-slate-100 px-1 py-0.5 rounded">{airdrop.tokenAddress.slice(0,10)}...</span>
           </p>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {airdrop.configUrl && (
+            <a 
+              href={airdrop.configUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View airdrop configuration"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+            >
+              <CogIcon className="w-4 h-4" />
+            </a>
+          )}
           {renderClaimButton()}
         </div>
       </div>

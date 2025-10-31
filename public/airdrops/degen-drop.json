@@ -1,0 +1,16 @@
+{
+  "name": "Initial $DEGEN Drop",
+  "description": "A special airdrop for the early supporters and followers of dwr.eth on Farcaster.",
+  "network": "Base",
+  "token": {
+    "name": "Degen",
+    "symbol": "DEGEN",
+    "address": "0x4ed4E862860beD51a957029679E281e3E1deE594",
+    "decimals": 18
+  },
+  "schedule": {
+    "startTime": "2024-07-15T10:00:00Z",
+    "endTime": "2024-08-15T10:00:00Z"
+  },
+  "airdropContract": "0x1234567890AbCdEf1234567890AbCdEf12345678"
+}
