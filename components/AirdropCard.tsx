@@ -70,14 +70,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4 transition-shadow hover:shadow-md">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex-grow">
-          <h2 className="text-sm font-semibold text-slate-800">{airdrop.name}</h2>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-grow min-w-0">
+          <h2 className="text-sm font-semibold text-slate-800 truncate" title={airdrop.name}>{airdrop.name}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Token: <span className="font-mono bg-slate-100 px-1 py-0.5 rounded">{airdrop.tokenAddress.slice(0,10)}...</span>
           </p>
         </div>
-        <div className="flex-shrink-0 self-start">
+        <div className="flex-shrink-0">
           {renderClaimButton()}
         </div>
       </div>
