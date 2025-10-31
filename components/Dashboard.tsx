@@ -1,5 +1,5 @@
 import React from 'react';
-import { Airdrop } from '../types';
+import { Airdrop, AirdropStatus } from '../types';
 import AirdropCard from './AirdropCard';
 import { PlusIcon } from './icons/PlusIcon';
 
@@ -9,6 +9,18 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
+  // Sort airdrops: 'In Progress' first, then by most recent
+  const sortedAirdrops = [...airdrops].sort((a, b) => {
+    if (a.status === AirdropStatus.InProgress && b.status !== AirdropStatus.InProgress) {
+      return -1;
+    }
+    if (a.status !== AirdropStatus.InProgress && b.status === AirdropStatus.InProgress) {
+      return 1;
+    }
+    // For items with the same status, sort by creation date (newest first)
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -21,9 +33,9 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
           New Airdrop
         </button>
       </div>
-      {airdrops.length > 0 ? (
+      {sortedAirdrops.length > 0 ? (
         <div className="space-y-3">
-          {airdrops.map(airdrop => (
+          {sortedAirdrops.map(airdrop => (
             <AirdropCard key={airdrop.id} airdrop={airdrop} />
           ))}
         </div>

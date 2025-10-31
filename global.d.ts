@@ -26,6 +26,18 @@ declare global {
         size?: 'sm' | 'md';
         loadingLabel?: string;
       };
+      // Add appkit-button for displaying connected state
+      'appkit-button': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        disabled?: boolean;
+        balance?: 'show' | 'hide';
+        size?: 'md' | 'sm';
+        label?: string;
+        loadingLabel?: string;
+        namespace?: 'eip155' | 'solana' | 'bip122';
+      };
     }
   }
 }
