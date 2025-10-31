@@ -1,8 +1,8 @@
 import React from 'react';
 import { createAppKit } from '@reown/appkit';
 import { WagmiProvider } from 'wagmi';
-// Fix: Import `base` and `celo` from `wagmi/chains` as they are not exported from `@reown/appkit/networks`.
-import { base, celo } from 'wagmi/chains';
+// Fix: Import `base` and `celo` from `viem/chains` as they are not exported from `wagmi/chains` in recent versions.
+import { base, celo } from 'viem/chains';
 // Fix: Import `QueryClient` from `@tanstack/query-core` as it may not be exported from `@tanstack/react-query` in this environment.
 import { QueryClientProvider } from '@tanstack/react-query';
 import { QueryClient } from '@tanstack/query-core';
@@ -26,30 +26,38 @@ const metadata = {
 // The imported network configurations are readonly. Create a deep mutable copy to satisfy wagmi and appkit types.
 const networks = JSON.parse(JSON.stringify([base, celo]));
 
-// 4. Create Wagmi Adapter
-const wagmiAdapter = new WagmiAdapter({
-  networks,
-  projectId,
-  ssr: true
-});
+let wagmiAdapter: WagmiAdapter | null = null;
 
-// 5. Create modal
-createAppKit({
-  adapters: [wagmiAdapter],
-  networks,
-  projectId,
-  metadata,
-  features: {
-    analytics: true
-  }
-});
+// Initialize AppKit only if projectId is available. This prevents build errors
+// when the environment variable is missing, while allowing the component to
+// render a helpful error message.
+if (projectId) {
+  wagmiAdapter = new WagmiAdapter({
+    networks,
+    projectId,
+    ssr: true
+  });
+
+  createAppKit({
+    adapters: [wagmiAdapter],
+    networks,
+    projectId,
+    metadata,
+    features: {
+      analytics: true
+    }
+  });
+}
+
 
 interface AppKitProviderProps {
   children: React.ReactNode;
 }
 
 export function AppKitProvider({ children }: AppKitProviderProps) {
-  if (!projectId) {
+  // The runtime check for projectId and the initialized adapter remains.
+  // If they are missing, an error message is displayed to the user.
+  if (!projectId || !wagmiAdapter) {
     return (
       <div style={{ padding: '20px', margin: '20px', textAlign: 'center', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', borderRadius: '8px', fontFamily: 'sans-serif' }}>
         <h2 style={{margin: 0, marginBottom: '10px'}}>Configuration Error</h2>
