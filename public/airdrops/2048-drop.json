@@ -1,0 +1,20 @@
+{
+  "name": "Play 2048 Mining App",
+  "description": "Submit blocks on Base S0",
+  "network": "Base",
+  "token": {
+    "name": "Wrapped Ether",
+    "symbol": "WETH",
+    "address": "0x4200000000000000000000000000000000000006",
+    "decimals": 18
+  },
+  "schedule": {
+    "startTime": "2025-10-31T10:00:00Z",
+    "endTime": "2025-11-15T10:00:00Z"
+  },
+  "airdropContract": "0x1234567890AbCdEf1234567890AbCdEf12345678",
+  "action": {
+    "text": "Link",
+    "url": "https://farcaster.xyz/miniapps/cWgc-9iS0tMl/2048-mining-app"
+  }
+}
