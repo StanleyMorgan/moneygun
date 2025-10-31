@@ -1,31 +1,31 @@
-// Fix: Import `React` to provide types for the JSX augmentation.
-import React from 'react';
+// Fix: Use a triple-slash directive to reference React types instead of an import statement.
+// This makes the file a script-style declaration file, ensuring declarations are truly global
+// and avoiding potential module resolution issues with TypeScript configurations.
+/// <reference types="react" />
 
-declare global {
-  // Fix: Define ChainNamespace to resolve the "Cannot find name 'ChainNamespace'" error.
-  type ChainNamespace = 'eip155' | 'solana';
+// By being a script file (no top-level imports/exports), declarations here are global.
 
-  namespace NodeJS {
-    interface ProcessEnv {
-      readonly REOWN_PROJECT_ID: string;
-    }
-  }
+// Define ChainNamespace as a global type.
+type ChainNamespace = 'eip155' | 'solana';
 
-  namespace JSX {
-    interface IntrinsicElements {
-      // Fix: Update type definition for 'appkit-button' to include component-specific properties.
-      'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        // Fix: Changed `label` to be a required property to match the expected type from AppKit.
-        label: string;
-        disabled?: boolean;
-        size?: 'sm' | 'md' | 'lg';
-        loadingLabel?: string;
-        balance?: 'show' | 'hide';
-        // Fix: Changed type from `string` to `ChainNamespace` to resolve incompatibility with AppKit's types.
-        namespace?: ChainNamespace;
-      };
-    }
+// Augment the NodeJS namespace to include environment variables.
+declare namespace NodeJS {
+  interface ProcessEnv {
+    readonly REOWN_PROJECT_ID: string;
   }
 }
 
-export {};
+// Augment the JSX namespace to include the 'appkit-button' custom element.
+declare namespace JSX {
+  interface IntrinsicElements {
+    // Fix: Define types for the 'appkit-button' custom element, resolving the error where it was not found.
+    'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      label: string;
+      disabled?: boolean;
+      size?: 'sm' | 'md' | 'lg';
+      loadingLabel?: string;
+      balance?: 'show' | 'hide';
+      namespace?: ChainNamespace;
+    };
+  }
+}
