@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -19,17 +21,6 @@ const App: React.FC = () => {
       recipientCount: 1250,
       createdAt: new Date('2024-07-15T10:00:00Z'),
       configUrl: '/airdrops/degen-drop.json',
-    },
-    {
-      id: '4',
-      name: '2048 Mining Reward',
-      tokenAddress: '0x4200000000000000000000000000000000000006',
-      totalAmount: 10,
-      status: AirdropStatus.InProgress,
-      eligibility: { type: 'custom_list', value: 'Top 100 miners' },
-      recipientCount: 100,
-      createdAt: new Date('2024-08-01T12:00:00Z'),
-      configUrl: '/airdrops/2048-drop.json',
     },
     {
       id: '2',
