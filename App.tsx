@@ -6,7 +6,6 @@ import Dashboard from './components/Dashboard';
 import NewAirdropForm from './components/NewAirdropForm';
 import { Airdrop, AirdropStatus } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
-import Footer from './components/Footer';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
@@ -71,7 +70,6 @@ const App: React.FC = () => {
         {view === 'dashboard' && <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />}
         {view === 'new-airdrop' && <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />}
       </main>
-      <Footer />
     </div>
   );
 };
