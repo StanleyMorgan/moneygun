@@ -1,5 +1,7 @@
+
 {
   "name": "Next Meme Token",
+  "type": "Whitelist",
   "description": "Airdrop for a custom list of early supporters.",
   "network": "Base",
   "token": {

@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Airdrop, AirdropStatus, EligibilityCriterion } from '../types';
+import { Airdrop, AirdropStatus, EligibilityCriterion, AirdropType } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
 interface NewAirdropFormProps {
@@ -19,6 +20,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [name, setName] = useState('');
   const [tokenAddress, setTokenAddress] = useState('');
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
+  const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [eligibilityType, setEligibilityType] = useState<EligibilityCriterion['type']>('followers');
   const [eligibilityValue, setEligibilityValue] = useState('');
 
@@ -39,6 +41,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
     onAddAirdrop({
       name,
+      type: airdropType,
       tokenAddress,
       totalAmount: Number(totalAmount),
       status: AirdropStatus.Draft,
@@ -96,6 +99,41 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
               />
             </div>
         </div>
+
+        <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Airdrop Type</label>
+            <div className="flex gap-2">
+                 <button
+                    type="button"
+                    onClick={() => setAirdropType(AirdropType.Whitelist)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border text-center transition-colors w-full ${
+                        airdropType === AirdropType.Whitelist
+                        ? 'bg-purple-50 text-purple-700 border-purple-300 ring-1 ring-purple-300'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    Whitelist
+                </button>
+                 <button
+                    type="button"
+                    onClick={() => setAirdropType(AirdropType.Quest)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border text-center transition-colors w-full ${
+                        airdropType === AirdropType.Quest
+                        ? 'bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-300'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    Quest
+                </button>
+            </div>
+             <p className="text-xs text-slate-500 mt-1.5 px-1">
+                {airdropType === AirdropType.Whitelist
+                ? 'Users can claim tokens directly if they are on the list.'
+                : 'Users must complete a task to be eligible for the reward.'
+                }
+            </p>
+        </div>
+
 
         <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Eligibility Criterion</label>

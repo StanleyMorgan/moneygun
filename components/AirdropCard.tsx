@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { Airdrop, AirdropStatus, AirdropConfig } from '../types';
+import { Airdrop, AirdropStatus, AirdropConfig, AirdropType } from '../types';
 
 interface AirdropCardProps {
   airdrop: Airdrop;
@@ -12,6 +11,11 @@ const statusColors: { [key in AirdropStatus]: string } = {
   [AirdropStatus.InProgress]: 'bg-blue-100 text-blue-600',
   [AirdropStatus.Completed]: 'bg-green-100 text-green-600',
   [AirdropStatus.Failed]: 'bg-red-100 text-red-600',
+};
+
+const typeColors: { [key in AirdropType]: string } = {
+  [AirdropType.Whitelist]: 'bg-purple-100 text-purple-600',
+  [AirdropType.Quest]: 'bg-amber-100 text-amber-700',
 };
 
 const getEligibilityText = (eligibility: Airdrop['eligibility']) => {
@@ -60,7 +64,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           <button
             className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}
           >
-            Claim
+            {airdrop.type === AirdropType.Quest ? 'Start Quest' : 'Claim'}
           </button>
         );
       case AirdropStatus.Completed:
@@ -101,7 +105,19 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         <div className="flex-grow min-w-0">
           <h2 className="text-sm font-semibold text-slate-800 truncate" title={airdrop.name}>{airdrop.name}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Token: <span className="font-mono bg-slate-100 px-1 py-0.5 rounded">{airdrop.tokenAddress.slice(0,10)}...</span>
+            {isLoading ? (
+              <span className="animate-pulse bg-slate-200 rounded w-40 h-4 inline-block" />
+            ) : config ? (
+              <span className="truncate">
+                Up to {new Intl.NumberFormat().format(airdrop.totalAmount)}
+                <span className="font-semibold text-slate-700"> ${config.token.symbol} </span> 
+                on <span className="font-medium text-slate-700">{config.network}</span>
+              </span>
+            ) : (
+              <>
+                Token: <span className="font-mono bg-slate-100 px-1 py-0.5 rounded">{airdrop.tokenAddress.slice(0,10)}...</span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -110,19 +126,22 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
       </div>
       <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-end gap-4">
         <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className={`px-2 py-0.5 rounded-full font-medium ${statusColors[airdrop.status]}`}>
               {airdrop.status}
             </div>
-            <div>
+            <div className={`px-2 py-0.5 rounded-full font-medium ${typeColors[airdrop.type]}`}>
+              {airdrop.type}
+            </div>
+            <div className="hidden sm:block">
               <span className="text-slate-400">Amount: </span> 
               {new Intl.NumberFormat().format(airdrop.totalAmount)}
             </div>
-            <div>
+            <div className="hidden sm:block">
               <span className="text-slate-400">Recipients: </span> 
               {airdrop.recipientCount}
             </div>
-            <div className="text-slate-400">
+            <div className="text-slate-400 hidden sm:block">
               {airdrop.createdAt.toLocaleDateString()}
             </div>
           </div>

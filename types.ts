@@ -1,4 +1,9 @@
 
+export enum AirdropType {
+  Whitelist = 'Whitelist',
+  Quest = 'Quest',
+}
+
 export enum AirdropStatus {
   Draft = 'Draft',
   InProgress = 'In Progress',
@@ -16,6 +21,7 @@ export type EligibilityCriterion =
 export interface Airdrop {
   id: string;
   name: string;
+  type: AirdropType;
   tokenAddress: string;
   totalAmount: number;
   status: AirdropStatus;
@@ -30,6 +36,7 @@ export interface AirdropConfig {
   name: string;
   description: string;
   network: string;
+  type: AirdropType;
   token: {
     name: string;
     symbol: string;

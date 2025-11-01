@@ -1,5 +1,7 @@
+
 {
   "name": "Play 2048 Mining App",
+  "type": "Quest",
   "description": "Submit blocks on Base S0",
   "network": "Base",
   "token": {

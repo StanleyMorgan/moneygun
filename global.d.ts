@@ -5,18 +5,23 @@
 // This resolves issues where module-based declaration files are not picked up
 // without explicit inclusion in tsconfig.json.
 
+// FIX: Converted this file to a global script by removing the 'declare global'
+// wrapper and the 'export {}'. This ensures TypeScript automatically discovers
+// and applies these type augmentations, resolving JSX intrinsic element errors
+// for custom components like 'appkit-button'.
+
 // Define ChainNamespace as a global type.
 type ChainNamespace = 'eip155' | 'solana';
 
 // Augment the NodeJS namespace to include environment variables.
-declare namespace NodeJS {
+namespace NodeJS {
   interface ProcessEnv {
     readonly REOWN_PROJECT_ID: string;
   }
 }
 
 // Augment the JSX namespace to include the 'appkit-connect-button' custom element.
-declare namespace JSX {
+namespace JSX {
   interface IntrinsicElements {
     'appkit-connect-button': React.DetailedHTMLProps<
       React.HTMLAttributes<HTMLElement>,

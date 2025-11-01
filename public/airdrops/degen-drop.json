@@ -1,5 +1,7 @@
+
 {
   "name": "Initial $DEGEN Drop",
+  "type": "Whitelist",
   "description": "Airdrop for early followers of dwr.eth.",
   "network": "Base",
   "token": {

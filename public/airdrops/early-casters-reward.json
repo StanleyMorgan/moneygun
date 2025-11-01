@@ -1,5 +1,7 @@
+
 {
   "name": "Early Casters Reward",
+  "type": "Whitelist",
   "description": "Airdrop for likers of a specific cast on Warpcast.",
   "network": "Base",
   "token": {
