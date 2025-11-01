@@ -92,9 +92,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
     
     // If we have a config with schedule, it's the source of truth for time.
     if (config?.schedule?.startTime && config.schedule.endTime) {
-      const now = new Date().getTime();
-      const startTime = new Date(config.schedule.startTime).getTime();
-      const endTime = new Date(config.schedule.endTime).getTime();
+      const now = Date.now();
+      const startTime = Date.parse(config.schedule.startTime);
+      const endTime = Date.parse(config.schedule.endTime);
 
       if (now < startTime) {
         return (
