@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -8,9 +6,7 @@ import NewAirdropForm from './components/NewAirdropForm';
 import { Airdrop } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
-
-// Define a type for the raw airdrop data from JSON, where createdAt is a string
-type AirdropFromJSON = Omit<Airdrop, 'createdAt'> & { createdAt: string };
+import { getAirdrops, createAirdrop } from './lib/api';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
@@ -21,45 +17,31 @@ const App: React.FC = () => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
     sdk.actions.ready();
 
-    // Fetch the list of airdrops from the index file
-    fetch('/airdrops/index.json')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch airdrops index');
-        }
-        return res.json();
-      })
-      .then((data: AirdropFromJSON[]) => {
-        // Convert createdAt string to Date object
-        const formattedAirdrops = data.map(airdrop => ({
-          ...airdrop,
-          createdAt: new Date(airdrop.createdAt),
-        }));
-        setAirdrops(formattedAirdrops);
-      })
-      .catch(error => {
+    const loadAirdrops = async () => {
+      try {
+        const fetchedAirdrops = await getAirdrops();
+        setAirdrops(fetchedAirdrops);
+      } catch (error) {
         console.error("Error loading airdrops:", error);
         // Handle error state, maybe show a message to the user
-      })
-      .finally(() => {
+      } finally {
         setIsLoading(false);
-      });
+      }
+    };
+
+    loadAirdrops();
 
   }, []);
 
-  const handleAddAirdrop = useCallback((airdrop: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>) => {
-    // This function would now need to update a remote source or is just for local state management during a session
-    // For this example, we'll just add it to the local state
-    setAirdrops(prevAirdrops => [
-      {
-        ...airdrop,
-        id: (prevAirdrops.length + 1).toString(),
-        createdAt: new Date(),
-        recipientCount: Math.floor(Math.random() * 1000) + 10 // Mock recipient count
-      },
-      ...prevAirdrops
-    ]);
-    setView('dashboard');
+  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>) => {
+    try {
+      const newAirdrop = await createAirdrop(airdropData);
+      setAirdrops(prevAirdrops => [newAirdrop, ...prevAirdrops]);
+      setView('dashboard');
+    } catch (error) {
+      console.error("Failed to create airdrop:", error);
+      // Optionally show an error message to the user
+    }
   }, []);
 
   const handleCreateNew = () => setView('new-airdrop');

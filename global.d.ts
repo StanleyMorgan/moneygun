@@ -3,6 +3,7 @@
 // FIX: To ensure global type augmentations are applied correctly, this file is converted
 // into a module. The `declare global` block is used to extend existing global types.
 // This is a robust pattern that works consistently across different TypeScript project setups.
+// This change resolves the top-level declaration error and makes the JSX augmentations available globally.
 declare global {
   // Define ChainNamespace as a global type.
   type ChainNamespace = 'eip155' | 'solana';
