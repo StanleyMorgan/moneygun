@@ -30,7 +30,8 @@ declare global {
         HTMLElement
       > & {
         disabled?: boolean;
-        balance?: 'show' | 'hide';
+        // FIX: The 'balance' property is made required to match the expected type from the AppKit library.
+        balance: 'show' | 'hide';
         size?: 'md' | 'sm';
         label?: string;
         loadingLabel?: string;

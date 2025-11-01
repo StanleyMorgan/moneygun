@@ -26,8 +26,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
-  const [tokenAddress, setTokenAddress] = useState('');
-  const [tokenSymbol, setTokenSymbol] = useState<string | undefined>();
+  const [tokenAddress, setTokenAddress] = useState(baseTokens[0].address);
+  const [tokenSymbol, setTokenSymbol] = useState<string | undefined>(baseTokens[0].symbol);
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([{ address: '', amount: '' }]);
@@ -76,9 +76,13 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     }
   };
 
-  const handleTokenSelect = (token: { symbol: string; address: string }) => {
-    setTokenAddress(token.address);
-    setTokenSymbol(token.symbol);
+  const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedAddress = e.target.value;
+    const selectedToken = baseTokens.find(t => t.address === selectedAddress);
+    if (selectedToken) {
+        setTokenAddress(selectedToken.address);
+        setTokenSymbol(selectedToken.symbol);
+    }
   };
 
   const whitelistTotal = useMemo(() => {
@@ -193,29 +197,19 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
         <div className="space-y-4">
             <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Token (Base Network)</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label htmlFor="rewardsToken" className="block text-xs font-medium text-slate-600 mb-1">Rewards token</label>
+                <select
+                    id="rewardsToken"
+                    value={tokenAddress}
+                    onChange={handleTokenChange}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                >
                     {baseTokens.map((token) => (
-                        <button
-                            key={token.address}
-                            type="button"
-                            onClick={() => handleTokenSelect(token)}
-                            className={`flex items-center justify-center h-12 px-3 py-1.5 text-sm font-semibold rounded-md border text-center transition-colors ${
-                                tokenAddress === token.address
-                                ? 'bg-purple-50 text-purple-700 border-purple-300 ring-1 ring-purple-300'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                            }`}
-                        >
+                        <option key={token.address} value={token.address}>
                             {token.symbol}
-                        </button>
+                        </option>
                     ))}
-                </div>
-                {tokenAddress && (
-                    <div className="text-xs text-slate-500 mt-2 p-2 rounded-md bg-slate-50 border border-slate-200">
-                        <span className="font-sans text-slate-400">Contract Address: </span>
-                        <span className="font-mono">{tokenAddress}</span>
-                    </div>
-                )}
+                </select>
             </div>
             <div>
               <label htmlFor="totalAmount" className="block text-xs font-medium text-slate-600 mb-1">Total Airdrop Amount {tokenSymbol ? `(in ${tokenSymbol})` : ''}</label>
