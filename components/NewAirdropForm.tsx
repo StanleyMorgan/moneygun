@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Airdrop, AirdropStatus, EligibilityCriterion, AirdropType } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -64,7 +65,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const isWhitelistSumValid = useMemo(() => {
     const total = Number(totalAmount) || 0;
-    return total > 0 && whitelistTotal === total;
+    if (total <= 0) return false;
+    // Use a small epsilon for float comparison to avoid precision issues
+    const epsilon = 1e-9; 
+    return Math.abs(whitelistTotal - total) < epsilon;
   }, [totalAmount, whitelistTotal]);
 
   const isWhitelistDataValid = useMemo(() => {
@@ -197,6 +201,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 onChange={(e) => setTotalAmount(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="e.g., 1000000"
                 min="0"
+                step="any"
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
               />
             </div>
@@ -234,6 +239,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                                 onChange={(e) => handleWhitelistChange(index, 'amount', e.target.value)}
                                 placeholder="Amount"
                                 min="0"
+                                step="any"
                                 className="w-1/3 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                             />
                             <button type="button" onClick={() => removeWhitelistRow(index)} className={`p-1.5 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-500 ${whitelist.length <= 1 && 'opacity-50 cursor-not-allowed'}`} disabled={whitelist.length <= 1}>
