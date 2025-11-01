@@ -28,6 +28,20 @@ const getEligibilityText = (eligibility: Airdrop['eligibility']) => {
     }
 }
 
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return dateString;
+  }
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
+};
+
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
   const [config, setConfig] = useState<AirdropConfig | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,6 +159,22 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
               {airdrop.createdAt.toLocaleDateString()}
             </div>
           </div>
+          
+          {/* Time: loading state */}
+          {isLoading && (
+            <div>
+              <span className="text-slate-400">Time: </span>
+              <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
+            </div>
+          )}
+          {/* Time: loaded state */}
+          {!isLoading && config?.schedule?.startTime && config.schedule.endTime && (
+            <div>
+              <span className="text-slate-400">Time: </span>
+              {`${formatDate(config.schedule.startTime)} - ${formatDate(config.schedule.endTime)}`}
+            </div>
+          )}
+
           <div>
             <span className="text-slate-400">Description: </span> 
             {isLoading ? (
