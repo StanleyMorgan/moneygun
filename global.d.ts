@@ -6,7 +6,10 @@
 // project and resolving errors in components like Header.tsx.
 
 // Define ChainNamespace as a global type.
-type ChainNamespace = 'eip155' | 'solana';
+// FIX: Added 'declare' to define a global type alias in a script file,
+// resolving the "Top-level declarations must start with 'declare' or 'export'"
+// error and allowing the JSX namespace augmentations to be processed correctly.
+declare type ChainNamespace = 'eip155' | 'solana';
 
 // Augment the NodeJS namespace to include environment variables.
 namespace NodeJS {

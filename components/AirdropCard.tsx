@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 
@@ -26,6 +27,11 @@ const formatDate = (date: Date) => {
     year: 'numeric',
     timeZone: 'UTC'
   });
+};
+
+const formatAddress = (address: string) => {
+    if (!address || address.length < 10) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
@@ -107,6 +113,13 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
               </>
             )}
           </p>
+          {airdrop.creatorAddress && (
+            <p className="text-xs text-slate-500 mt-1">
+              From: <span className="font-mono text-slate-600" title={airdrop.creatorAddress}>
+                {formatAddress(airdrop.creatorAddress)}
+              </span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {renderClaimButton()}
@@ -128,15 +141,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
               <span className="text-slate-400 mr-1.5 flex-shrink-0">Time:</span>
               <p className="text-slate-600">
                 {`${formatDate(airdrop.startTime)} - ${formatDate(airdrop.endTime)}`}
-              </p>
-            </div>
-          )}
-
-          {airdrop.creatorAddress && (
-            <div className="flex items-start">
-              <span className="text-slate-400 mr-1.5 flex-shrink-0">Creator:</span>
-              <p className="font-mono text-slate-600 truncate" title={airdrop.creatorAddress}>
-                {airdrop.creatorAddress}
               </p>
             </div>
           )}
