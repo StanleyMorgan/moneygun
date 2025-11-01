@@ -53,13 +53,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const [newAirdrop] = await sql`
                 INSERT INTO airdrops (
                     name, description, action, type, token_address, token_symbol, network,
-                    total_amount, status, recipient_count, creator_address,
+                    total_amount, recipient_count, creator_address,
                     start_time, end_time
                 )
                 VALUES (
                     ${name}, ${description || null}, ${actionJson}, ${type}, ${tokenAddress}, 
                     ${tokenSymbol || null}, ${network || null},
-                    ${totalAmount}, 'Draft', 0, ${creatorAddress},
+                    ${totalAmount}, 0, ${creatorAddress},
                     ${startTime || null}, 
                     ${endTime || null}
                 )
