@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropConfig, AirdropType } from '../types';
 
@@ -71,44 +72,80 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
 
   const renderClaimButton = () => {
     const baseClasses = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2";
+
+    // These statuses are final and override any time-based logic.
+    if (airdrop.status === AirdropStatus.Failed) {
+      return (
+        <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
+          Failed
+        </button>
+      );
+    }
+
+    if (airdrop.status === AirdropStatus.Draft) {
+      return (
+        <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
+          Not Started
+        </button>
+      );
+    }
     
+    // If we have a config with schedule, it's the source of truth for time.
+    if (config?.schedule?.startTime && config.schedule.endTime) {
+      const now = new Date().getTime();
+      const startTime = new Date(config.schedule.startTime).getTime();
+      const endTime = new Date(config.schedule.endTime).getTime();
+
+      if (now < startTime) {
+        return (
+          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
+            Not Started
+          </button>
+        );
+      }
+      
+      if (now > endTime) {
+        return (
+          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
+            Ended
+          </button>
+        );
+      }
+
+      // If we are within the time range, the drop is active.
+      return (
+        <button className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}>
+          {airdrop.type === AirdropType.Quest ? 'Start Quest' : 'Claim'}
+        </button>
+      );
+    }
+
+    // Fallback logic for when config is loading, or failed to load, or has no schedule.
+    // We can use the status from the main airdrop object as a best-effort display.
+    if (isLoading) {
+       return (
+          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
+            ...
+          </button>
+        );
+    }
+
+    // Fallback to status if config is not available after loading.
     switch (airdrop.status) {
       case AirdropStatus.InProgress:
         return (
-          <button
-            className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}
-          >
+          <button className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}>
             {airdrop.type === AirdropType.Quest ? 'Start Quest' : 'Claim'}
           </button>
         );
       case AirdropStatus.Completed:
         return (
-          <button
-            disabled
-            className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}
-          >
+          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
             Ended
           </button>
         );
-      case AirdropStatus.Failed:
-        return (
-          <button
-            disabled
-            className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}
-          >
-            Failed
-          </button>
-        );
-      case AirdropStatus.Draft:
-        return (
-          <button
-            disabled
-            className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}
-          >
-            Not Started
-          </button>
-        );
       default:
+        // Covers cases where config failed to load for an unknown status
         return null;
     }
   };
