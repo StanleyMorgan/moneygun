@@ -21,6 +21,11 @@ export type EligibilityCriterion =
 export interface Airdrop {
   id: string;
   name: string;
+  description?: string;
+  action?: {
+    text: string;
+    url: string;
+  };
   type: AirdropType;
   tokenAddress: string;
   totalAmount: number;
@@ -50,6 +55,6 @@ export interface AirdropConfig {
   airdropContract: string;
   action?: {
     text: string;
-    url: string;
+    url:string;
   };
 }

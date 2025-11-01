@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropConfig, AirdropType } from '../types';
 
@@ -112,13 +113,15 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
     }
   };
 
+  const descriptionText = airdrop.description || config?.description;
+
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-grow min-w-0">
           <h2 className="text-sm font-semibold text-slate-800 truncate" title={airdrop.name}>{airdrop.name}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isLoading ? (
+            {isLoading && !config ? (
               <span className="animate-pulse bg-slate-200 rounded w-40 h-4 inline-block" />
             ) : config ? (
               <span className="truncate">
@@ -141,17 +144,17 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         <div className="space-y-2 text-xs text-slate-600 mb-4">
           <div>
             <span className="text-slate-400">Description: </span> 
-            {isLoading ? (
+            {isLoading && !descriptionText ? (
               <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
-            ) : config?.description ? (
-              config.description
+            ) : descriptionText ? (
+              descriptionText
             ) : (
               getEligibilityText(airdrop.eligibility)
             )}
           </div>
         
           {/* Time: loading state */}
-          {isLoading && (
+          {isLoading && !config &&(
             <div>
               <span className="text-slate-400">Time: </span>
               <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
@@ -167,7 +170,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         </div>
         
         <div className="flex justify-between items-center">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
                 <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[airdrop.status]}`}>
                     {airdrop.status}
                 </div>
@@ -176,14 +179,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
                 </div>
             </div>
             <div className="flex-shrink-0">
-            {config?.action && (
+            {(airdrop.action || config?.action) && (
                 <a
-                    href={config.action.url}
+                    href={airdrop.action?.url || config?.action?.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
-                    {config.action.text}
+                    {airdrop.action?.text || config?.action?.text}
                 </a>
                 )}
             </div>
