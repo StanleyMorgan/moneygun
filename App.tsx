@@ -8,48 +8,47 @@ import { Airdrop, AirdropStatus } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 
+// Define a type for the raw airdrop data from JSON, where createdAt is a string
+type AirdropFromJSON = Omit<Airdrop, 'createdAt'> & { createdAt: string };
+
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
-  const [airdrops, setAirdrops] = useState<Airdrop[]>([
-    {
-      id: '1',
-      name: 'Initial $DEGEN Drop',
-      tokenAddress: '0x4ed4E862860beD51a957029679E281e3E1deE594',
-      totalAmount: 1000000,
-      status: AirdropStatus.Completed,
-      eligibility: { type: 'followers', value: 'dwr.eth' },
-      recipientCount: 1250,
-      createdAt: new Date('2024-07-15T10:00:00Z'),
-      configUrl: '/airdrops/degen-drop.json',
-    },
-    {
-      id: '2',
-      name: 'Early Casters Reward',
-      tokenAddress: '0x5471ea8f73142279182911d837ca7c852a4a2b85',
-      totalAmount: 500000,
-      status: AirdropStatus.InProgress,
-      eligibility: { type: 'cast_likers', value: 'https://warpcast.com/dwr/0x1a2b3c' },
-      recipientCount: 480,
-      createdAt: new Date('2024-07-28T14:30:00Z'),
-    },
-    {
-      id: '3',
-      name: 'Next Meme Token',
-      tokenAddress: 'TBD',
-      totalAmount: 10000000,
-      status: AirdropStatus.Draft,
-      eligibility: { type: 'custom_list', value: '12 addresses' },
-      recipientCount: 12,
-      createdAt: new Date(),
-    },
-  ]);
+  const [airdrops, setAirdrops] = useState<Airdrop[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
     sdk.actions.ready();
+
+    // Fetch the list of airdrops from the index file
+    fetch('/airdrops/index.json')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch airdrops index');
+        }
+        return res.json();
+      })
+      .then((data: AirdropFromJSON[]) => {
+        // Convert createdAt string to Date object
+        const formattedAirdrops = data.map(airdrop => ({
+          ...airdrop,
+          createdAt: new Date(airdrop.createdAt),
+        }));
+        setAirdrops(formattedAirdrops);
+      })
+      .catch(error => {
+        console.error("Error loading airdrops:", error);
+        // Handle error state, maybe show a message to the user
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+
   }, []);
 
   const handleAddAirdrop = useCallback((airdrop: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>) => {
+    // This function would now need to update a remote source or is just for local state management during a session
+    // For this example, we'll just add it to the local state
     setAirdrops(prevAirdrops => [
       {
         ...airdrop,
@@ -65,12 +64,31 @@ const App: React.FC = () => {
   const handleCreateNew = () => setView('new-airdrop');
   const handleBackToDashboard = () => setView('dashboard');
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="text-center py-16">
+          <p className="text-slate-500 animate-pulse">Loading airdrops...</p>
+        </div>
+      );
+    }
+
+    if (view === 'dashboard') {
+      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />;
+    }
+
+    if (view === 'new-airdrop') {
+      return <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />;
+    }
+
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       <Header />
       <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 w-full flex-grow">
-        {view === 'dashboard' && <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />}
-        {view === 'new-airdrop' && <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />}
+        {renderContent()}
       </main>
       <Footer />
     </div>

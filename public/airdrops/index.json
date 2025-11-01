@@ -1,0 +1,46 @@
+[
+  {
+    "id": "1",
+    "name": "Initial $DEGEN Drop",
+    "tokenAddress": "0x4ed4E862860beD51a957029679E281e3E1deE594",
+    "totalAmount": 1000000,
+    "status": "Completed",
+    "eligibility": { "type": "followers", "value": "dwr.eth" },
+    "recipientCount": 1250,
+    "createdAt": "2024-07-15T10:00:00Z",
+    "configUrl": "/airdrops/degen-drop.json"
+  },
+  {
+    "id": "2",
+    "name": "Early Casters Reward",
+    "tokenAddress": "0x5471ea8f73142279182911d837ca7c852a4a2b85",
+    "totalAmount": 500000,
+    "status": "In Progress",
+    "eligibility": { "type": "cast_likers", "value": "https://warpcast.com/dwr/0x1a2b3c" },
+    "recipientCount": 480,
+    "createdAt": "2024-07-28T14:30:00Z",
+    "configUrl": "/airdrops/early-casters-reward.json"
+  },
+  {
+    "id": "3",
+    "name": "Next Meme Token",
+    "tokenAddress": "TBD",
+    "totalAmount": 10000000,
+    "status": "Draft",
+    "eligibility": { "type": "custom_list", "value": "12 addresses" },
+    "recipientCount": 12,
+    "createdAt": "2024-08-01T12:00:00Z",
+    "configUrl": "/airdrops/next-meme-token.json"
+  },
+  {
+    "id": "4",
+    "name": "Play 2048 Mining App",
+    "tokenAddress": "0x4200000000000000000000000000000000000006",
+    "totalAmount": 2048,
+    "status": "Draft",
+    "eligibility": { "type": "custom_list", "value": "Top Miners" },
+    "recipientCount": 100,
+    "createdAt": "2024-08-05T00:00:00Z",
+    "configUrl": "/airdrops/2048-drop.json"
+  }
+]
