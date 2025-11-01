@@ -1,10 +1,11 @@
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import NewAirdropForm from './components/NewAirdropForm';
-import { Airdrop, AirdropStatus } from './types';
+import { Airdrop } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 
