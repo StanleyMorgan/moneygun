@@ -1,11 +1,38 @@
-
-
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 
 interface AirdropCardProps {
   airdrop: Airdrop;
 }
+
+const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
+  // Manually set statuses that override time-based logic.
+  if (airdrop.status === AirdropStatus.Failed) return AirdropStatus.Failed;
+  if (airdrop.status === AirdropStatus.Draft) return AirdropStatus.Draft;
+
+  const now = Date.now();
+  const startTime = airdrop.startTime?.getTime();
+  const endTime = airdrop.endTime?.getTime();
+
+  // If it's not a draft/failed but has no start time, it's effectively a draft.
+  if (!startTime) {
+    return AirdropStatus.Draft;
+  }
+
+  // Scheduled for the future. Visually, it's "Not Started", which uses Draft styling.
+  if (now < startTime) {
+    return AirdropStatus.Draft; 
+  }
+
+  // Airdrop has ended.
+  if (endTime && now > endTime) {
+    return AirdropStatus.Completed;
+  }
+  
+  // If it has started and not yet ended (or has no end date), it's in progress.
+  return AirdropStatus.InProgress;
+};
+
 
 const statusColors: { [key in AirdropStatus]: string } = {
   [AirdropStatus.Draft]: 'bg-slate-100 text-slate-600',
@@ -35,63 +62,24 @@ const formatAddress = (address: string) => {
 };
 
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
+  const computedStatus = getComputedStatus(airdrop);
+  const isClaimable = computedStatus === AirdropStatus.InProgress;
+
   const renderClaimButton = () => {
     const baseClasses = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2";
 
-    if (airdrop.status === AirdropStatus.Failed) {
+    if (isClaimable) {
       return (
-        <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-          Failed
+        <button className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}>
+          Claim
         </button>
       );
-    }
-
-    if (airdrop.status === AirdropStatus.Draft) {
+    } else {
       return (
         <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-          Not Started
+          Claim
         </button>
       );
-    }
-    
-    if (airdrop.startTime && airdrop.endTime) {
-      const now = Date.now();
-      const startTime = airdrop.startTime.getTime();
-      const endTime = airdrop.endTime.getTime();
-
-      if (now < startTime) {
-        return (
-          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-            Not Started
-          </button>
-        );
-      }
-      
-      if (now > endTime) {
-        return (
-          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-            Ended
-          </button>
-        );
-      }
-    }
-    
-    // If not draft/failed and within time range (or no time specified), rely on status
-    switch (airdrop.status) {
-      case AirdropStatus.InProgress:
-        return (
-          <button className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}>
-            {airdrop.type === AirdropType.Quest ? 'Start Quest' : 'Claim'}
-          </button>
-        );
-      case AirdropStatus.Completed:
-        return (
-          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-            Ended
-          </button>
-        );
-      default:
-        return null;
     }
   };
 
@@ -148,8 +136,8 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-                <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[airdrop.status]}`}>
-                    {airdrop.status}
+                <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[computedStatus]}`}>
+                    {computedStatus}
                 </div>
                 <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[airdrop.type]}`}>
                     {airdrop.type}

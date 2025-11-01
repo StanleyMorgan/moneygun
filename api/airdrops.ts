@@ -1,4 +1,3 @@
-
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
@@ -13,6 +12,8 @@ interface CreateAirdropPayload {
   totalAmount: number;
   status: 'Draft' | 'In Progress' | 'Completed' | 'Failed';
   creatorAddress: string;
+  startTime?: string; // Comes as an ISO string from the client
+  endTime?: string;   // Comes as an ISO string from the client
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -34,15 +35,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
-            const { name, description, action, type, tokenAddress, totalAmount, status, creatorAddress } = req.body as CreateAirdropPayload;
+            const { name, description, action, type, tokenAddress, totalAmount, creatorAddress, startTime, endTime } = req.body as CreateAirdropPayload;
 
-            if (!name || !type || !tokenAddress || totalAmount === undefined || !status || !creatorAddress) {
+            if (!name || !type || !tokenAddress || totalAmount === undefined || !creatorAddress || !startTime || !endTime) {
                 return res.status(400).json({ message: 'Missing required fields' });
             }
 
             const [newAirdrop] = await sql`
-                INSERT INTO airdrops (name, description, action, type, token_address, total_amount, status, recipient_count, creator_address)
-                VALUES (${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, ${totalAmount}, ${status}, 0, ${creatorAddress})
+                INSERT INTO airdrops (
+                    name, description, action, type, token_address, 
+                    total_amount, status, recipient_count, creator_address,
+                    start_time, end_time
+                )
+                VALUES (
+                    ${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, 
+                    ${totalAmount}, 'Draft', 0, ${creatorAddress},
+                    ${startTime || null}, 
+                    ${endTime || null}
+                )
                 RETURNING *;
             `;
 

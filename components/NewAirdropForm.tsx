@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -20,6 +19,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([{ address: '', amount: '' }]);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [timeError, setTimeError] = useState('');
 
   const handleLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -28,6 +30,20 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setLinkError('Ссылка должна начинаться с https://farcaster.xyz');
     } else {
       setLinkError('');
+    }
+  };
+
+  const handleTimeChange = (field: 'start' | 'end', value: string) => {
+    const currentStart = field === 'start' ? value : startTime;
+    const currentEnd = field === 'end' ? value : endTime;
+
+    if (field === 'start') setStartTime(value);
+    if (field === 'end') setEndTime(value);
+
+    if (currentStart && currentEnd && new Date(currentEnd) <= new Date(currentStart)) {
+      setTimeError('End time must be after start time.');
+    } else {
+      setTimeError('');
     }
   };
   
@@ -68,14 +84,14 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !tokenAddress || totalAmount === '') {
-      alert('Пожалуйста, заполните все обязательные поля.');
+    if (!name || !tokenAddress || totalAmount === '' || !startTime || !endTime || timeError) {
+      alert('Please fill out all required fields and correct any errors.');
       return;
     }
     
     if (airdropType === AirdropType.Whitelist) {
         if (!isWhitelistSumValid || !isWhitelistDataValid) {
-            alert('Пожалуйста, исправьте ошибки в списке адресов. Сумма должна совпадать с общей суммой, и все поля должны быть заполнены корректно.');
+            alert('Please correct errors in the whitelist. The sum must match the total amount, and all fields must be filled correctly.');
             return;
         }
     }
@@ -87,21 +103,23 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       type: airdropType,
       tokenAddress,
       totalAmount: Number(totalAmount),
-      status: AirdropStatus.Draft,
+      status: AirdropStatus.Draft, // Always created as a draft, will become active based on time
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
     });
   };
   
   const isFormValid = useMemo(() => {
-    const baseValid = name && tokenAddress && Number(totalAmount) > 0 && !linkError;
+    const baseValid = name && tokenAddress && Number(totalAmount) > 0 && !linkError && startTime && endTime && !timeError;
     if (!baseValid) return false;
 
     if (airdropType === AirdropType.Whitelist) {
         return isWhitelistSumValid && isWhitelistDataValid;
     } 
-    // For Quest, only base fields are required now
+    // For Quest, base fields + time are required
     return true;
     
-  }, [name, tokenAddress, totalAmount, linkError, airdropType, isWhitelistSumValid, isWhitelistDataValid]);
+  }, [name, tokenAddress, totalAmount, linkError, startTime, endTime, timeError, airdropType, isWhitelistSumValid, isWhitelistDataValid]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-6">
@@ -123,6 +141,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Early $DEGEN Casters"
             className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            required
           />
         </div>
 
@@ -163,6 +182,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 onChange={(e) => setTokenAddress(e.target.value)}
                 placeholder="0x..."
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono"
+                required
               />
             </div>
             <div>
@@ -176,9 +196,38 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 min="0"
                 step="any"
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                required
               />
             </div>
         </div>
+
+        {/* Time Inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="startTime" className="block text-xs font-medium text-slate-600 mb-1">Start Time (UTC)</label>
+            <input
+              type="datetime-local"
+              id="startTime"
+              value={startTime}
+              onChange={(e) => handleTimeChange('start', e.target.value)}
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="endTime" className="block text-xs font-medium text-slate-600 mb-1">End Time (UTC)</label>
+            <input
+              type="datetime-local"
+              id="endTime"
+              value={endTime}
+              onChange={(e) => handleTimeChange('end', e.target.value)}
+              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              required
+            />
+          </div>
+          {timeError && <p className="text-xs text-red-500 mt-1 md:col-span-2">{timeError}</p>}
+        </div>
+
 
         {/* Airdrop Type Toggle */}
         <div>
