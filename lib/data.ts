@@ -17,8 +17,7 @@ export let airdropsData: AirdropFromJSON[] = [
     "status": AirdropStatus.Completed,
     "eligibility": { "type": "followers", "value": "dwr.eth" },
     "recipientCount": 1250,
-    "createdAt": "2024-07-15T10:00:00Z",
-    "configUrl": "/airdrops/degen-drop.json"
+    "createdAt": "2024-07-15T10:00:00Z"
   },
   {
     "id": "2",
@@ -31,8 +30,7 @@ export let airdropsData: AirdropFromJSON[] = [
     "status": AirdropStatus.InProgress,
     "eligibility": { "type": "cast_likers", "value": "https://warpcast.com/dwr/0x1a2b3c" },
     "recipientCount": 480,
-    "createdAt": "2024-07-28T14:30:00Z",
-    "configUrl": "/airdrops/early-casters-reward.json"
+    "createdAt": "2024-07-28T14:30:00Z"
   },
   {
     "id": "3",
@@ -45,8 +43,7 @@ export let airdropsData: AirdropFromJSON[] = [
     "status": AirdropStatus.Draft,
     "eligibility": { "type": "custom_list", "value": "12 addresses" },
     "recipientCount": 12,
-    "createdAt": "2024-08-01T12:00:00Z",
-    "configUrl": "/airdrops/next-meme-token.json"
+    "createdAt": "2024-08-01T12:00:00Z"
   },
   {
     "id": "4",
@@ -59,7 +56,6 @@ export let airdropsData: AirdropFromJSON[] = [
     "status": AirdropStatus.Draft,
     "eligibility": { "type": "custom_list", "value": "Top Miners" },
     "recipientCount": 100,
-    "createdAt": "2024-08-05T00:00:00Z",
-    "configUrl": "/airdrops/2048-drop.json"
+    "createdAt": "2024-08-05T00:00:00Z"
   }
 ];

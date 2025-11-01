@@ -1,3 +1,4 @@
+
 import { Airdrop } from '../types';
 
 // Helper to convert snake_case object keys to camelCase.
@@ -36,6 +37,8 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
     ...item,
     totalAmount: Number(item.totalAmount), // total_amount is NUMERIC in DB
     createdAt: new Date(item.createdAt),
+    startTime: item.startTime ? new Date(item.startTime) : undefined,
+    endTime: item.endTime ? new Date(item.endTime) : undefined,
   }));
 };
 
@@ -67,5 +70,7 @@ export const createAirdrop = async (airdropData: Omit<Airdrop, 'id' | 'createdAt
     ...camelCaseData,
     totalAmount: Number(camelCaseData.totalAmount),
     createdAt: new Date(camelCaseData.createdAt),
+    startTime: camelCaseData.startTime ? new Date(camelCaseData.startTime) : undefined,
+    endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,
   };
 };

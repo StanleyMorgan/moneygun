@@ -1,7 +1,7 @@
 
 
-import React, { useState, useEffect } from 'react';
-import { Airdrop, AirdropStatus, AirdropConfig, AirdropType } from '../types';
+import React from 'react';
+import { Airdrop, AirdropStatus, AirdropType } from '../types';
 
 interface AirdropCardProps {
   airdrop: Airdrop;
@@ -29,12 +29,8 @@ const getEligibilityText = (eligibility: Airdrop['eligibility']) => {
     }
 }
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
-    return dateString;
-  }
+const formatDate = (date: Date) => {
+  if (!date) return '';
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -44,36 +40,9 @@ const formatDate = (dateString: string) => {
 };
 
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
-  const [config, setConfig] = useState<AirdropConfig | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (airdrop.configUrl) {
-      setIsLoading(true);
-      fetch(airdrop.configUrl)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return res.json();
-        })
-        .then((data: AirdropConfig) => {
-          setConfig(data);
-        })
-        .catch((error) => {
-          console.error(`Failed to fetch config for ${airdrop.name}:`, error);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
-  }, [airdrop.configUrl, airdrop.name]);
-
-
   const renderClaimButton = () => {
     const baseClasses = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2";
 
-    // These statuses are final and override any time-based logic.
     if (airdrop.status === AirdropStatus.Failed) {
       return (
         <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
@@ -90,11 +59,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
       );
     }
     
-    // If we have a config with schedule, it's the source of truth for time.
-    if (config?.schedule?.startTime && config.schedule.endTime) {
+    if (airdrop.startTime && airdrop.endTime) {
       const now = Date.now();
-      const startTime = Date.parse(config.schedule.startTime);
-      const endTime = Date.parse(config.schedule.endTime);
+      const startTime = airdrop.startTime.getTime();
+      const endTime = airdrop.endTime.getTime();
 
       if (now < startTime) {
         return (
@@ -111,26 +79,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           </button>
         );
       }
-
-      // If we are within the time range, the drop is active.
-      return (
-        <button className={`${baseClasses} text-white bg-purple-600 hover:bg-purple-700`}>
-          {airdrop.type === AirdropType.Quest ? 'Start Quest' : 'Claim'}
-        </button>
-      );
     }
-
-    // Fallback logic for when config is loading, or failed to load, or has no schedule.
-    // We can use the status from the main airdrop object as a best-effort display.
-    if (isLoading) {
-       return (
-          <button disabled className={`${baseClasses} bg-slate-200 text-slate-500 cursor-not-allowed`}>
-            ...
-          </button>
-        );
-    }
-
-    // Fallback to status if config is not available after loading.
+    
+    // If not draft/failed and within time range (or no time specified), rely on status
     switch (airdrop.status) {
       case AirdropStatus.InProgress:
         return (
@@ -145,12 +96,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           </button>
         );
       default:
-        // Covers cases where config failed to load for an unknown status
         return null;
     }
   };
-
-  const descriptionText = airdrop.description || config?.description;
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4 transition-shadow hover:shadow-md">
@@ -158,13 +106,11 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         <div className="flex-grow min-w-0">
           <h2 className="text-sm font-semibold text-slate-800 truncate" title={airdrop.name}>{airdrop.name}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isLoading && !config ? (
-              <span className="animate-pulse bg-slate-200 rounded w-40 h-4 inline-block" />
-            ) : config ? (
+            {airdrop.tokenSymbol && airdrop.network ? (
               <span className="truncate">
                 Up to {new Intl.NumberFormat().format(airdrop.totalAmount)}
-                <span className="font-semibold text-slate-700"> ${config.token.symbol} </span> 
-                on <span className="font-medium text-slate-700">{config.network}</span>
+                <span className="font-semibold text-slate-700"> ${airdrop.tokenSymbol} </span> 
+                on <span className="font-medium text-slate-700">{airdrop.network}</span>
               </span>
             ) : (
               <>
@@ -181,27 +127,13 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         <div className="space-y-2 text-xs text-slate-600 mb-4">
           <div>
             <span className="text-slate-400">Description: </span> 
-            {isLoading && !descriptionText ? (
-              <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
-            ) : descriptionText ? (
-              descriptionText
-            ) : (
-              getEligibilityText(airdrop.eligibility)
-            )}
+            {airdrop.description ? airdrop.description : getEligibilityText(airdrop.eligibility)}
           </div>
         
-          {/* Time: loading state */}
-          {isLoading && !config &&(
+          {airdrop.startTime && airdrop.endTime && (
             <div>
               <span className="text-slate-400">Time: </span>
-              <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
-            </div>
-          )}
-          {/* Time: loaded state */}
-          {!isLoading && config?.schedule?.startTime && config.schedule.endTime && (
-            <div>
-              <span className="text-slate-400">Time: </span>
-              {`${formatDate(config.schedule.startTime)} - ${formatDate(config.schedule.endTime)}`}
+              {`${formatDate(airdrop.startTime)} - ${formatDate(airdrop.endTime)}`}
             </div>
           )}
         </div>
@@ -216,14 +148,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
                 </div>
             </div>
             <div className="flex-shrink-0">
-            {(airdrop.action || config?.action) && (
+            {airdrop.action && (
                 <a
-                    href={airdrop.action?.url || config?.action?.url}
+                    href={airdrop.action.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
-                    {airdrop.action?.text || config?.action?.text}
+                    {airdrop.action.text}
                 </a>
                 )}
             </div>

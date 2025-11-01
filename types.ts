@@ -28,12 +28,15 @@ export interface Airdrop {
   };
   type: AirdropType;
   tokenAddress: string;
+  tokenSymbol?: string;
+  network?: string;
   totalAmount: number;
   status: AirdropStatus;
   eligibility: EligibilityCriterion;
   recipientCount: number;
+  startTime?: Date;
+  endTime?: Date;
   createdAt: Date;
-  configUrl?: string; // URL to the detailed JSON configuration
 }
 
 // Detailed configuration loaded from a JSON file
