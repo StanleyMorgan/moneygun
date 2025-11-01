@@ -36,12 +36,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // Log the incoming request body for debugging purposes
+        console.log('Received payload for new airdrop:', JSON.stringify(req.body, null, 2));
+
         try {
             const { name, description, action, type, tokenAddress, tokenSymbol, network, totalAmount, creatorAddress, startTime, endTime } = req.body as CreateAirdropPayload;
 
             if (!name || !type || !tokenAddress || totalAmount === undefined || !creatorAddress || !startTime || !endTime) {
                 return res.status(400).json({ message: 'Missing required fields' });
             }
+            
+            // The `action` column in Postgres is likely JSON or JSONB.
+            // The `neon` driver requires objects to be stringified before insertion.
+            const actionJson = action ? JSON.stringify(action) : null;
 
             const [newAirdrop] = await sql`
                 INSERT INTO airdrops (
@@ -50,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     start_time, end_time
                 )
                 VALUES (
-                    ${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, 
+                    ${name}, ${description || null}, ${actionJson}, ${type}, ${tokenAddress}, 
                     ${tokenSymbol || null}, ${network || null},
                     ${totalAmount}, 'Draft', 0, ${creatorAddress},
                     ${startTime || null}, 
@@ -62,6 +69,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(201).json(newAirdrop);
         } catch (error) {
             console.error('Failed to create airdrop:', error);
+            // Also log the payload that caused the error for better context
+            console.error('Payload that caused error:', JSON.stringify(req.body, null, 2));
             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
             return res.status(500).json({ message: 'Internal Server Error', error: errorMessage });
         }
