@@ -54,14 +54,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 INSERT INTO airdrops (
                     name, description, action, type, token_address, token_symbol, network,
                     total_amount, recipient_count, creator_address,
-                    start_time, end_time
+                    start_time, end_time, created_at
                 )
                 VALUES (
                     ${name}, ${description || null}, ${actionJson}, ${type}, ${tokenAddress}, 
                     ${tokenSymbol || null}, ${network || null},
                     ${totalAmount}, 0, ${creatorAddress},
                     ${startTime || null}, 
-                    ${endTime || null}
+                    ${endTime || null},
+                    NOW()
                 )
                 RETURNING *;
             `;
