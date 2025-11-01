@@ -7,11 +7,13 @@ import { Airdrop } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 import { getAirdrops, createAirdrop } from './lib/api';
+import { useAccount } from 'wagmi';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
   const [airdrops, setAirdrops] = useState<Airdrop[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { address } = useAccount();
 
   useEffect(() => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
@@ -33,16 +35,24 @@ const App: React.FC = () => {
 
   }, []);
 
-  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>) => {
+  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'>) => {
+    if (!address) {
+      alert("Please connect your wallet to create an airdrop.");
+      return;
+    }
     try {
-      const newAirdrop = await createAirdrop(airdropData);
+      const airdropPayload = {
+        ...airdropData,
+        creatorAddress: address,
+      };
+      const newAirdrop = await createAirdrop(airdropPayload);
       setAirdrops(prevAirdrops => [newAirdrop, ...prevAirdrops]);
       setView('dashboard');
     } catch (error) {
       console.error("Failed to create airdrop:", error);
       // Optionally show an error message to the user
     }
-  }, []);
+  }, [address]);
 
   const handleCreateNew = () => setView('new-airdrop');
   const handleBackToDashboard = () => setView('dashboard');

@@ -1,9 +1,10 @@
 /// <reference types="react" />
 
-// FIX: To ensure global type augmentations are applied correctly, this file is converted
-// back to a script from a module. The `declare global` block is used to extend existing global types.
-// This is a robust pattern that works consistently across different TypeScript project setups.
-// This change resolves the top-level declaration error and makes the JSX augmentations available globally.
+// FIX: Converted this file from a module back to a global script file. This
+// ensures TypeScript automatically includes it for global namespace
+// augmentation, making the custom JSX element types available throughout the
+// project and resolving errors in components like Header.tsx.
+
 // Define ChainNamespace as a global type.
 type ChainNamespace = 'eip155' | 'solana';
 

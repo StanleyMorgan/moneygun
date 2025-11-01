@@ -1,21 +1,12 @@
 
-
 import React, { useState, useMemo } from 'react';
-import { Airdrop, AirdropStatus, EligibilityCriterion, AirdropType } from '../types';
+import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
 interface NewAirdropFormProps {
-  onAddAirdrop: (airdrop: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>) => void;
+  onAddAirdrop: (airdrop: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'>) => void;
   onBack: () => void;
 }
-
-const eligibilityOptions: { value: EligibilityCriterion['type']; label: string; placeholder: string }[] = [
-  { value: 'followers', label: 'Followers Of', placeholder: 'e.g., dwr.eth or FID' },
-  { value: 'cast_likers', label: 'Likers Of Cast', placeholder: 'e.g., https://warpcast.com/dwr/0x...' },
-  { value: 'channel_casters', label: 'Casters In Channel', placeholder: 'e.g., degen' },
-  { value: 'nft_holders', label: 'NFT Holders', placeholder: 'e.g., 0x... (collection address)' },
-  { value: 'custom_list', label: 'Custom Address List', placeholder: 'Paste wallet addresses, one per line' },
-];
 
 type WhitelistEntry = { address: string; amount: string };
 const MAX_DESC_LENGTH = 280;
@@ -28,8 +19,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [tokenAddress, setTokenAddress] = useState('');
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
-  const [eligibilityType, setEligibilityType] = useState<EligibilityCriterion['type']>('followers');
-  const [eligibilityValue, setEligibilityValue] = useState('');
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([{ address: '', amount: '' }]);
 
   const handleLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,24 +73,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       return;
     }
     
-    let eligibility: EligibilityCriterion;
-
     if (airdropType === AirdropType.Whitelist) {
         if (!isWhitelistSumValid || !isWhitelistDataValid) {
             alert('Пожалуйста, исправьте ошибки в списке адресов. Сумма должна совпадать с общей суммой, и все поля должны быть заполнены корректно.');
             return;
-        }
-        eligibility = { type: 'custom_list', value: `${whitelist.length} addresses` };
-    } else { // Quest
-        if (!eligibilityValue) {
-            alert('Пожалуйста, укажите значение для критерия отбора.');
-            return;
-        }
-        if (eligibilityType === 'custom_list') {
-            const addressCount = eligibilityValue.trim().split('\n').filter(Boolean).length;
-            eligibility = { type: 'custom_list', value: `${addressCount} addresses` };
-        } else {
-            eligibility = { type: eligibilityType, value: eligibilityValue } as EligibilityCriterion;
         }
     }
 
@@ -113,11 +88,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       tokenAddress,
       totalAmount: Number(totalAmount),
       status: AirdropStatus.Draft,
-      eligibility,
     });
   };
-
-  const selectedOption = eligibilityOptions.find(o => o.value === eligibilityType);
   
   const isFormValid = useMemo(() => {
     const baseValid = name && tokenAddress && Number(totalAmount) > 0 && !linkError;
@@ -125,10 +97,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
     if (airdropType === AirdropType.Whitelist) {
         return isWhitelistSumValid && isWhitelistDataValid;
-    } else { // Quest
-        return !!eligibilityValue;
-    }
-  }, [name, tokenAddress, totalAmount, linkError, airdropType, eligibilityValue, isWhitelistSumValid, isWhitelistDataValid]);
+    } 
+    // For Quest, only base fields are required now
+    return true;
+    
+  }, [name, tokenAddress, totalAmount, linkError, airdropType, isWhitelistSumValid, isWhitelistDataValid]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-6">
@@ -159,7 +132,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Briefly describe your airdrop"
+                placeholder="Briefly describe your airdrop and its eligibility criteria."
                 rows={3}
                 maxLength={MAX_DESC_LENGTH}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
@@ -220,7 +193,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         </div>
 
         {/* Conditional UI */}
-        {airdropType === AirdropType.Whitelist ? (
+        {airdropType === AirdropType.Whitelist && (
             <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Recipients & Amounts</label>
                 <div className="space-y-2">
@@ -254,26 +227,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     <div className="flex justify-between mt-1"><span>Required total:</span> <span className="font-mono">{(Number(totalAmount) || 0).toLocaleString()}</span></div>
                 </div>
             </div>
-        ) : (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Eligibility Criterion</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                    {eligibilityOptions.map(option => (
-                        <button key={option.value} type="button" onClick={() => { setEligibilityType(option.value); setEligibilityValue(''); }} className={`px-2 py-1.5 text-xs font-medium rounded-md border text-center transition-colors ${ eligibilityType === option.value ? 'bg-purple-50 text-purple-700 border-purple-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }`}>
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-              </div>
-              <div>
-                {eligibilityType === 'custom_list' ? (
-                     <textarea value={eligibilityValue} onChange={(e) => setEligibilityValue(e.target.value)} placeholder={selectedOption?.placeholder} rows={6} className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono"/>
-                ) : (
-                    <input type="text" value={eligibilityValue} onChange={(e) => setEligibilityValue(e.target.value)} placeholder={selectedOption?.placeholder} className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"/>
-                )}
-              </div>
-            </>
         )}
 
         <div className="pt-3 flex justify-end">

@@ -1,3 +1,4 @@
+
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
@@ -11,7 +12,7 @@ interface CreateAirdropPayload {
   tokenAddress: string;
   totalAmount: number;
   status: 'Draft' | 'In Progress' | 'Completed' | 'Failed';
-  eligibility: { type: string; value: string };
+  creatorAddress: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,15 +34,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
-            const { name, description, action, type, tokenAddress, totalAmount, status, eligibility } = req.body as CreateAirdropPayload;
+            const { name, description, action, type, tokenAddress, totalAmount, status, creatorAddress } = req.body as CreateAirdropPayload;
 
-            if (!name || !type || !tokenAddress || totalAmount === undefined || !status || !eligibility) {
+            if (!name || !type || !tokenAddress || totalAmount === undefined || !status || !creatorAddress) {
                 return res.status(400).json({ message: 'Missing required fields' });
             }
 
             const [newAirdrop] = await sql`
-                INSERT INTO airdrops (name, description, action, type, token_address, total_amount, status, eligibility, recipient_count)
-                VALUES (${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, ${totalAmount}, ${status}, ${eligibility}, 0)
+                INSERT INTO airdrops (name, description, action, type, token_address, total_amount, status, recipient_count, creator_address)
+                VALUES (${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, ${totalAmount}, ${status}, 0, ${creatorAddress})
                 RETURNING *;
             `;
 

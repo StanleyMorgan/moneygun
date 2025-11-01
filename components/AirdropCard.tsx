@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 
@@ -18,16 +17,6 @@ const typeColors: { [key in AirdropType]: string } = {
   [AirdropType.Whitelist]: 'bg-purple-100 text-purple-600',
   [AirdropType.Quest]: 'bg-amber-100 text-amber-700',
 };
-
-const getEligibilityText = (eligibility: Airdrop['eligibility']) => {
-    switch (eligibility.type) {
-        case 'followers': return `Followers of ${eligibility.value}`;
-        case 'cast_likers': return `Likers of cast...${eligibility.value.slice(-6)}`;
-        case 'channel_casters': return `Casters in /${eligibility.value}`;
-        case 'nft_holders': return `Holders of ${eligibility.value.slice(0, 6)}...`;
-        case 'custom_list': return `Custom list (${eligibility.value})`;
-    }
-}
 
 const formatDate = (date: Date) => {
   if (!date) return '';
@@ -124,16 +113,31 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         </div>
       </div>
       <div className="mt-4 pt-3 border-t border-slate-100">
-        <div className="space-y-2 text-xs text-slate-600 mb-4">
-          <div>
-            <span className="text-slate-400">Description: </span> 
-            {airdrop.description ? airdrop.description : getEligibilityText(airdrop.eligibility)}
-          </div>
+        <div className="space-y-2 text-xs mb-4">
+          {airdrop.description && (
+            <div className="flex items-start">
+              <span className="text-slate-400 mr-1.5 flex-shrink-0">Description:</span>
+              <p className="break-words line-clamp-3 text-slate-600" title={airdrop.description}>
+                {airdrop.description}
+              </p>
+            </div>
+          )}
         
           {airdrop.startTime && airdrop.endTime && (
-            <div>
-              <span className="text-slate-400">Time: </span>
-              {`${formatDate(airdrop.startTime)} - ${formatDate(airdrop.endTime)}`}
+            <div className="flex items-start">
+              <span className="text-slate-400 mr-1.5 flex-shrink-0">Time:</span>
+              <p className="text-slate-600">
+                {`${formatDate(airdrop.startTime)} - ${formatDate(airdrop.endTime)}`}
+              </p>
+            </div>
+          )}
+
+          {airdrop.creatorAddress && (
+            <div className="flex items-start">
+              <span className="text-slate-400 mr-1.5 flex-shrink-0">Creator:</span>
+              <p className="font-mono text-slate-600 truncate" title={airdrop.creatorAddress}>
+                {airdrop.creatorAddress}
+              </p>
             </div>
           )}
         </div>

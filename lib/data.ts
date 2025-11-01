@@ -1,7 +1,12 @@
+
 import { Airdrop, AirdropType, AirdropStatus } from '../types';
 
 // Define a type for the raw airdrop data, where createdAt is a string
-export type AirdropFromJSON = Omit<Airdrop, 'createdAt'> & { createdAt: string };
+export type AirdropFromJSON = Omit<Airdrop, 'createdAt' | 'startTime' | 'endTime' > & { 
+  createdAt: string;
+  startTime?: string;
+  endTime?: string;
+};
 
 // This acts as our in-memory database, initialized with the same data as index.json
 // It's a mutable 'let' so our mock createAirdrop function can modify it.
@@ -15,8 +20,8 @@ export let airdropsData: AirdropFromJSON[] = [
     "totalAmount": 1000000,
     // FIX: Use AirdropStatus enum instead of string literal
     "status": AirdropStatus.Completed,
-    "eligibility": { "type": "followers", "value": "dwr.eth" },
     "recipientCount": 1250,
+    "creatorAddress": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
     "createdAt": "2024-07-15T10:00:00Z"
   },
   {
@@ -28,8 +33,8 @@ export let airdropsData: AirdropFromJSON[] = [
     "totalAmount": 500000,
     // FIX: Use AirdropStatus enum instead of string literal
     "status": AirdropStatus.InProgress,
-    "eligibility": { "type": "cast_likers", "value": "https://warpcast.com/dwr/0x1a2b3c" },
     "recipientCount": 480,
+    "creatorAddress": "0x1234...5678",
     "createdAt": "2024-07-28T14:30:00Z"
   },
   {
@@ -41,8 +46,8 @@ export let airdropsData: AirdropFromJSON[] = [
     "totalAmount": 10000000,
     // FIX: Use AirdropStatus enum instead of string literal
     "status": AirdropStatus.Draft,
-    "eligibility": { "type": "custom_list", "value": "12 addresses" },
     "recipientCount": 12,
+    "creatorAddress": "0xabcd...efgh",
     "createdAt": "2024-08-01T12:00:00Z"
   },
   {
@@ -54,8 +59,8 @@ export let airdropsData: AirdropFromJSON[] = [
     "totalAmount": 2048,
     // FIX: Use AirdropStatus enum instead of string literal
     "status": AirdropStatus.Draft,
-    "eligibility": { "type": "custom_list", "value": "Top Miners" },
     "recipientCount": 100,
+    "creatorAddress": "0x9999...1111",
     "createdAt": "2024-08-05T00:00:00Z"
   }
 ];
