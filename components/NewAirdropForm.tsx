@@ -8,7 +8,7 @@ interface NewAirdropFormProps {
 }
 
 type WhitelistEntry = { address: string; amount: string };
-const MAX_DESC_LENGTH = 280;
+const MAX_DESC_LENGTH = 140;
 
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
   const [name, setName] = useState('');
