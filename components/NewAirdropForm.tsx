@@ -10,12 +10,24 @@ interface NewAirdropFormProps {
 type WhitelistEntry = { address: string; amount: string };
 const MAX_DESC_LENGTH = 140;
 
+const baseTokens = [
+  {
+    symbol: 'USDC',
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  },
+  {
+    symbol: 'WETH',
+    address: '0x4200000000000000000000000000000000000006',
+  }
+];
+
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
   const [tokenAddress, setTokenAddress] = useState('');
+  const [tokenSymbol, setTokenSymbol] = useState<string | undefined>();
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([{ address: '', amount: '' }]);
@@ -64,6 +76,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     }
   };
 
+  const handleTokenSelect = (token: { symbol: string; address: string }) => {
+    setTokenAddress(token.address);
+    setTokenSymbol(token.symbol);
+  };
+
   const whitelistTotal = useMemo(() => {
     return whitelist.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   }, [whitelist]);
@@ -102,6 +119,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       action: link ? { text: "Link", url: link } : undefined,
       type: airdropType,
       tokenAddress,
+      tokenSymbol,
+      network: 'Base',
       totalAmount: Number(totalAmount),
       status: AirdropStatus.Draft, // Always created as a draft, will become active based on time
       startTime: new Date(startTime),
@@ -172,21 +191,34 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             {linkError && <p className="text-xs text-red-500 mt-1">{linkError}</p>}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
             <div>
-              <label htmlFor="tokenAddress" className="block text-xs font-medium text-slate-600 mb-1">Token Contract Address</label>
-              <input
-                type="text"
-                id="tokenAddress"
-                value={tokenAddress}
-                onChange={(e) => setTokenAddress(e.target.value)}
-                placeholder="0x..."
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono"
-                required
-              />
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Token (Base Network)</label>
+                <div className="grid grid-cols-2 gap-2">
+                    {baseTokens.map((token) => (
+                        <button
+                            key={token.address}
+                            type="button"
+                            onClick={() => handleTokenSelect(token)}
+                            className={`flex items-center justify-center h-12 px-3 py-1.5 text-sm font-semibold rounded-md border text-center transition-colors ${
+                                tokenAddress === token.address
+                                ? 'bg-purple-50 text-purple-700 border-purple-300 ring-1 ring-purple-300'
+                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            {token.symbol}
+                        </button>
+                    ))}
+                </div>
+                {tokenAddress && (
+                    <div className="text-xs text-slate-500 mt-2 p-2 rounded-md bg-slate-50 border border-slate-200">
+                        <span className="font-sans text-slate-400">Contract Address: </span>
+                        <span className="font-mono">{tokenAddress}</span>
+                    </div>
+                )}
             </div>
             <div>
-              <label htmlFor="totalAmount" className="block text-xs font-medium text-slate-600 mb-1">Total Airdrop Amount</label>
+              <label htmlFor="totalAmount" className="block text-xs font-medium text-slate-600 mb-1">Total Airdrop Amount {tokenSymbol ? `(in ${tokenSymbol})` : ''}</label>
               <input
                 type="number"
                 id="totalAmount"

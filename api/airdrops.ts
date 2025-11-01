@@ -9,6 +9,8 @@ interface CreateAirdropPayload {
   action?: { text: string; url: string };
   type: 'Whitelist' | 'Quest';
   tokenAddress: string;
+  tokenSymbol?: string;
+  network?: string;
   totalAmount: number;
   status: 'Draft' | 'In Progress' | 'Completed' | 'Failed';
   creatorAddress: string;
@@ -35,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
-            const { name, description, action, type, tokenAddress, totalAmount, creatorAddress, startTime, endTime } = req.body as CreateAirdropPayload;
+            const { name, description, action, type, tokenAddress, tokenSymbol, network, totalAmount, creatorAddress, startTime, endTime } = req.body as CreateAirdropPayload;
 
             if (!name || !type || !tokenAddress || totalAmount === undefined || !creatorAddress || !startTime || !endTime) {
                 return res.status(400).json({ message: 'Missing required fields' });
@@ -43,12 +45,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const [newAirdrop] = await sql`
                 INSERT INTO airdrops (
-                    name, description, action, type, token_address, 
+                    name, description, action, type, token_address, token_symbol, network,
                     total_amount, status, recipient_count, creator_address,
                     start_time, end_time
                 )
                 VALUES (
                     ${name}, ${description || null}, ${action || null}, ${type}, ${tokenAddress}, 
+                    ${tokenSymbol || null}, ${network || null},
                     ${totalAmount}, 'Draft', 0, ${creatorAddress},
                     ${startTime || null}, 
                     ${endTime || null}

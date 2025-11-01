@@ -1,3 +1,6 @@
+// Fix: Add a reference to global type definitions to recognize custom JSX elements.
+/// <reference path="../global.d.ts" />
+
 import React from 'react';
 import { useAccount } from 'wagmi';
 
