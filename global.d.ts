@@ -1,10 +1,9 @@
 /// <reference types="react" />
 
-// By converting this file to a module (with `export {}`), we can reliably
-// augment global types using the `declare global` block. This is the standard
-// approach and resolves issues with TypeScript not picking up the JSX
-// intrinsic element definitions.
-
+// FIX: The global type declarations were not being correctly applied, causing errors.
+// This has been refactored to use `declare global`, which is the standard TypeScript
+// pattern for augmenting global types from within a module. This ensures that the
+// custom JSX elements are recognized by the compiler.
 declare global {
   // Define ChainNamespace as a global type.
   type ChainNamespace = 'eip155' | 'solana';
@@ -43,6 +42,6 @@ declare global {
   }
 }
 
-// This empty export turns the file into a module, which is required for
-// `declare global` to work correctly.
+// This empty export is required to turn this file into a module,
+// which is necessary for `declare global` to work.
 export {};

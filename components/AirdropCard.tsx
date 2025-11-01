@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropConfig, AirdropType } from '../types';
 
@@ -138,28 +137,19 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
           {renderClaimButton()}
         </div>
       </div>
-      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-end gap-4">
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className={`px-2 py-0.5 rounded-full font-medium ${statusColors[airdrop.status]}`}>
-              {airdrop.status}
-            </div>
-            <div className={`px-2 py-0.5 rounded-full font-medium ${typeColors[airdrop.type]}`}>
-              {airdrop.type}
-            </div>
-            <div className="hidden sm:block">
-              <span className="text-slate-400">Amount: </span> 
-              {new Intl.NumberFormat().format(airdrop.totalAmount)}
-            </div>
-            <div className="hidden sm:block">
-              <span className="text-slate-400">Recipients: </span> 
-              {airdrop.recipientCount}
-            </div>
-            <div className="text-slate-400 hidden sm:block">
-              {airdrop.createdAt.toLocaleDateString()}
-            </div>
+      <div className="mt-4 pt-3 border-t border-slate-100">
+        <div className="space-y-2 text-xs text-slate-600 mb-4">
+          <div>
+            <span className="text-slate-400">Description: </span> 
+            {isLoading ? (
+              <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
+            ) : config?.description ? (
+              config.description
+            ) : (
+              getEligibilityText(airdrop.eligibility)
+            )}
           </div>
-          
+        
           {/* Time: loading state */}
           {isLoading && (
             <div>
@@ -174,29 +164,29 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
               {`${formatDate(config.schedule.startTime)} - ${formatDate(config.schedule.endTime)}`}
             </div>
           )}
-
-          <div>
-            <span className="text-slate-400">Description: </span> 
-            {isLoading ? (
-              <span className="animate-pulse bg-slate-200 rounded w-48 h-3.5 inline-block align-middle"></span>
-            ) : config?.description ? (
-              config.description
-            ) : (
-              getEligibilityText(airdrop.eligibility)
-            )}
-          </div>
         </div>
-        <div className="flex-shrink-0">
-          {config?.action && (
-              <a
-                href={config.action.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-              >
-                {config.action.text}
-              </a>
-            )}
+        
+        <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center gap-2">
+                <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[airdrop.status]}`}>
+                    {airdrop.status}
+                </div>
+                <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[airdrop.type]}`}>
+                    {airdrop.type}
+                </div>
+            </div>
+            <div className="flex-shrink-0">
+            {config?.action && (
+                <a
+                    href={config.action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                >
+                    {config.action.text}
+                </a>
+                )}
+            </div>
         </div>
       </div>
     </div>
