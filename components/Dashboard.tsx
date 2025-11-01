@@ -1,6 +1,6 @@
 import React from 'react';
 import { Airdrop, AirdropStatus } from '../types';
-import AirdropCard from './AirdropCard';
+import AirdropCard, { getComputedStatus } from './AirdropCard';
 import { PlusIcon } from './icons/PlusIcon';
 
 interface DashboardProps {
@@ -9,12 +9,15 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
-  // Sort airdrops: 'In Progress' first, then by most recent
+  // Sort airdrops: 'In Progress' first, then by most recent, based on computed status
   const sortedAirdrops = [...airdrops].sort((a, b) => {
-    if (a.status === AirdropStatus.InProgress && b.status !== AirdropStatus.InProgress) {
+    const statusA = getComputedStatus(a);
+    const statusB = getComputedStatus(b);
+
+    if (statusA === AirdropStatus.InProgress && statusB !== AirdropStatus.InProgress) {
       return -1;
     }
-    if (a.status !== AirdropStatus.InProgress && b.status === AirdropStatus.InProgress) {
+    if (statusA !== AirdropStatus.InProgress && statusB === AirdropStatus.InProgress) {
       return 1;
     }
     // For items with the same status, sort by creation date (newest first)

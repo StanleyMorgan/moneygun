@@ -5,21 +5,22 @@ interface AirdropCardProps {
   airdrop: Airdrop;
 }
 
-const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
-  // Manually set statuses that override time-based logic.
-  if (airdrop.status === AirdropStatus.Failed) return AirdropStatus.Failed;
-  if (airdrop.status === AirdropStatus.Draft) return AirdropStatus.Draft;
+export const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
+  // A 'Failed' status is permanent and overrides any time-based logic.
+  if (airdrop.status === AirdropStatus.Failed) {
+    return AirdropStatus.Failed;
+  }
 
   const now = Date.now();
   const startTime = airdrop.startTime?.getTime();
   const endTime = airdrop.endTime?.getTime();
 
-  // If it's not a draft/failed but has no start time, it's effectively a draft.
+  // If there's no start time, it's considered a draft.
   if (!startTime) {
     return AirdropStatus.Draft;
   }
 
-  // Scheduled for the future. Visually, it's "Not Started", which uses Draft styling.
+  // Scheduled for the future.
   if (now < startTime) {
     return AirdropStatus.Draft; 
   }
