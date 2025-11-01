@@ -39,7 +39,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     const url = e.target.value;
     setLink(url);
     if (url && !url.startsWith('https://farcaster.xyz')) {
-      setLinkError('Ссылка должна начинаться с https://farcaster.xyz');
+      setLinkError('Link must start with https://farcaster.xyz');
     } else {
       setLinkError('');
     }
@@ -91,7 +91,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const isWhitelistSumValid = useMemo(() => {
     const total = Number(totalAmount) || 0;
-    if (total <= 0) return false;
     // Use a small epsilon for float comparison to avoid precision issues
     const epsilon = 1e-9; 
     return Math.abs(whitelistTotal - total) < epsilon;
@@ -105,9 +104,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !tokenAddress || totalAmount === '' || !startTime || !endTime || timeError) {
-      alert('Please fill out all required fields and correct any errors.');
-      return;
+    if (!isFormValid) {
+        alert('Please fill out all required fields and correct any errors.');
+        return;
     }
     
     if (airdropType === AirdropType.Whitelist) {
@@ -306,7 +305,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
         <div className="pt-3 flex justify-end">
           <button type="submit" disabled={!isFormValid} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">
-            Create Airdrop Draft
+            Create Airdrop
           </button>
         </div>
       </form>
