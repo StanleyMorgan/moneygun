@@ -1,12 +1,11 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import Papa from 'papaparse';
 // Fix: Import `decodeEventLog` from `viem` to correctly parse transaction logs.
-import { getAddress, isAddress, parseAbiItem, decodeEventLog } from 'viem';
+import { getAddress, isAddress, decodeEventLog } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropFactoryABI, airdropABI } from '../lib/abi';
 
@@ -61,7 +60,57 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   console.log('[NewAirdropForm Render] Account State:', { address, isConnected });
 
   const handleWhitelistParse = () => {
-    // ... (parsing logic remains the same)
+    if (!whitelistCsv.trim()) {
+      setWhitelist([]);
+      setTotalAmount(0);
+      setError('');
+      return;
+    }
+
+    Papa.parse<string[]>(whitelistCsv, {
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length) {
+            setError(`CSV parsing error on line ${results.errors[0].row + 1}: ${results.errors[0].message}`);
+            setWhitelist([]);
+            setTotalAmount(0);
+            return;
+        }
+        
+        const newWhitelist: WhitelistEntry[] = [];
+        let newTotalAmount = 0;
+        let parseError = '';
+
+        for (const [index, row] of results.data.entries()) {
+          const [address, amount] = row.map(v => v ? v.trim() : '');
+          if (row.length !== 2 || !address || !amount) {
+            parseError = `Error on line ${index + 1}: Each line must have two values: address,amount.`;
+            break;
+          }
+          if (!isAddress(address)) {
+            parseError = `Error on line ${index + 1}: Invalid address format "${address}".`;
+            break;
+          }
+          const amountNum = Number(amount);
+          if (isNaN(amountNum) || amountNum <= 0) {
+            parseError = `Error on line ${index + 1}: Invalid amount "${amount}". Must be a positive number.`;
+            break;
+          }
+          newWhitelist.push({ address: getAddress(address), amount: String(amountNum) });
+          newTotalAmount += amountNum;
+        }
+
+        if (parseError) {
+          setError(parseError);
+          setWhitelist([]);
+          setTotalAmount(0);
+        } else {
+          setError('');
+          setWhitelist(newWhitelist);
+          setTotalAmount(newTotalAmount);
+        }
+      },
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +123,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         return;
     }
     if (whitelist.length === 0) {
-        setError('Whitelist cannot be empty.');
+        setError('Whitelist cannot be empty. Please provide a valid CSV and wait for it to be processed.');
         return;
     }
     if (!name || !tokenAddress || !startTime || !endTime) {

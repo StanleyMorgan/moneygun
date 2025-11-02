@@ -157,7 +157,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
 
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
-    const formatDate = (date?: Date) => date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
 
     return (
         <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
