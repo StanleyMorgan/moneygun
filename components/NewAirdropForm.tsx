@@ -70,8 +70,14 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     Papa.parse<string[]>(whitelistCsv, {
       skipEmptyLines: true,
       complete: (results) => {
-        if (results.errors.length) {
-            setError(`CSV parsing error on line ${results.errors[0].row + 1}: ${results.errors[0].message}`);
+        if (results.errors.length > 0) {
+            const firstError = results.errors[0];
+            // Added a check to ensure firstError is defined before accessing its properties to fix build error.
+            if (firstError) {
+                setError(`CSV parsing error on line ${firstError.row + 1}: ${firstError.message}`);
+            } else {
+                setError('An unknown CSV parsing error occurred.');
+            }
             setWhitelist([]);
             setTotalAmount(0);
             return;

@@ -1,3 +1,5 @@
+// Fix: Manually include global type definitions to ensure custom JSX elements are recognized.
+/// <reference path="../global.d.ts" />
 
 import React from 'react';
 import { FarcasterIcon } from './icons/FarcasterIcon';
