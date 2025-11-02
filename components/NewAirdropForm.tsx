@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
@@ -10,30 +10,56 @@ interface NewAirdropFormProps {
 type WhitelistEntry = { address: string; amount: string };
 const MAX_DESC_LENGTH = 140;
 
-const baseTokens = [
-  {
-    symbol: 'USDC',
-    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-  },
-  {
-    symbol: 'WETH',
-    address: '0x4200000000000000000000000000000000000006',
-  }
-];
+const tokensByNetwork: { [key: string]: { symbol: string; address: string }[] } = {
+  'Base': [
+    {
+      symbol: 'USDC',
+      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    },
+    {
+      symbol: 'WETH',
+      address: '0x4200000000000000000000000000000000000006',
+    }
+  ],
+  'Base Sepolia': [
+    {
+      symbol: 'USDC',
+      address: '0x4b1a87123583b2E630152668a2c2fABb44b32F36', // USDC on Base Sepolia
+    },
+    {
+      symbol: 'WETH',
+      address: '0x4200000000000000000000000000000000000006', // WETH on Base Sepolia
+    }
+  ]
+};
 
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState('');
-  const [tokenAddress, setTokenAddress] = useState(baseTokens[0].address);
-  const [tokenSymbol, setTokenSymbol] = useState<string | undefined>(baseTokens[0].symbol);
+  const [network, setNetwork] = useState('Base');
+  const [tokenAddress, setTokenAddress] = useState(tokensByNetwork['Base'][0].address);
+  const [tokenSymbol, setTokenSymbol] = useState<string | undefined>(tokensByNetwork['Base'][0].symbol);
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([{ address: '', amount: '' }]);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [timeError, setTimeError] = useState('');
+
+  // Effect to update token selection when network changes
+  useEffect(() => {
+    const availableTokens = tokensByNetwork[network];
+    if (availableTokens && availableTokens.length > 0) {
+      setTokenAddress(availableTokens[0].address);
+      setTokenSymbol(availableTokens[0].symbol);
+    } else {
+      setTokenAddress('');
+      setTokenSymbol(undefined);
+    }
+  }, [network]);
+
 
   const handleLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -78,7 +104,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedAddress = e.target.value;
-    const selectedToken = baseTokens.find(t => t.address === selectedAddress);
+    const availableTokens = tokensByNetwork[network];
+    const selectedToken = availableTokens.find(t => t.address === selectedAddress);
     if (selectedToken) {
         setTokenAddress(selectedToken.address);
         setTokenSymbol(selectedToken.symbol);
@@ -123,7 +150,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       type: airdropType,
       tokenAddress,
       tokenSymbol,
-      network: 'Base',
+      network: network,
       totalAmount: Number(totalAmount),
       status: AirdropStatus.Draft, // Always created as a draft, will become active based on time
       startTime: new Date(startTime),
@@ -196,6 +223,21 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
         <div className="space-y-4">
             <div>
+              <label htmlFor="network" className="block text-xs font-medium text-slate-600 mb-1">Network</label>
+              <select
+                  id="network"
+                  value={network}
+                  onChange={(e) => setNetwork(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              >
+                  {Object.keys(tokensByNetwork).map((net) => (
+                      <option key={net} value={net}>
+                          {net}
+                      </option>
+                  ))}
+              </select>
+            </div>
+            <div>
                 <label htmlFor="rewardsToken" className="block text-xs font-medium text-slate-600 mb-1">Rewards token</label>
                 <select
                     id="rewardsToken"
@@ -203,7 +245,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     onChange={handleTokenChange}
                     className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                 >
-                    {baseTokens.map((token) => (
+                    {(tokensByNetwork[network] || []).map((token) => (
                         <option key={token.address} value={token.address}>
                             {token.symbol}
                         </option>

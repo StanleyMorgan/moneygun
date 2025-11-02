@@ -2,7 +2,7 @@ import React from 'react';
 import { createAppKit } from '@reown/appkit';
 import { WagmiProvider } from 'wagmi';
 // Fix: Import `base` and `celo` from `viem/chains` as they are not exported from `wagmi/chains` in recent versions.
-import { base, celo } from 'viem/chains';
+import { base, celo, baseSepolia } from 'viem/chains';
 // Fix: Import `QueryClient` from `@tanstack/query-core` as it may not be exported from `@tanstack/react-query` in this environment.
 import { QueryClientProvider } from '@tanstack/react-query';
 import { QueryClient } from '@tanstack/query-core';
@@ -24,7 +24,7 @@ const metadata = {
 
 // 3. Set the networks
 // The imported network configurations are readonly. Create a deep mutable copy to satisfy wagmi and appkit types.
-const networks = JSON.parse(JSON.stringify([base, celo]));
+const networks = JSON.parse(JSON.stringify([base, baseSepolia, celo]));
 
 let wagmiAdapter: WagmiAdapter | null = null;
 
