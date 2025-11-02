@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
-// Fix: Import `BaseError` for proper error handling.
-import { parseEther, formatEther, getAddress, BaseError } from 'viem';
+// Fix: Import `BaseError`, `parseUnits` for proper error and decimal handling.
+import { parseUnits, formatEther, getAddress, BaseError } from 'viem';
 import { baseSepolia } from 'viem/chains';
 
 interface AirdropCardProps {
@@ -149,11 +150,11 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         const { amount, proof } = await res.json();
         if (!proof || amount === undefined) throw new Error('You are not on the whitelist.');
         
+        // Fix: Use `parseUnits` to handle tokens with different decimal places correctly.
         const decimals = airdrop.tokenDecimals || 18;
-        const amountInBaseUnit = parseEther(String(amount)); // Assumes 18 decimals, should be more robust
+        const amountInBaseUnit = parseUnits(String(amount), decimals);
 
         setClaimMessage('Please confirm transaction...');
-        // Fix: Pass `chain` and `account` to `writeContract` as required by wagmi v2, and remove deprecated `chainId`.
         // The new ABI's `claim` function does not require the recipient's address.
         writeContract({
             address: airdrop.contractAddress as `0x${string}`,
@@ -241,11 +242,13 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
             <div className="bg-slate-50 p-2 rounded-md text-xs text-slate-700 grid grid-cols-2 gap-2">
                 <div>
                     <div className="font-medium">Balance</div>
-                    <div>{contractBalance !== undefined ? `${formatEther(contractBalance as bigint)} ${airdrop.tokenSymbol}` : 'Loading...'}</div>
+                    {/* Fix: Check for `!= null` to handle both `undefined` and `null` from wagmi hooks. */}
+                    <div>{contractBalance != null ? `${formatEther(contractBalance as bigint)} ${airdrop.tokenSymbol}` : 'Loading...'}</div>
                 </div>
                 <div>
                     <div className="font-medium">Claims</div>
-                    <div>{claimedCount !== undefined ? `${claimedCount.toString()} / ${airdrop.recipientCount}` : 'Loading...'}</div>
+                    {/* Fix: Check for `!= null` to handle both `undefined` and `null` and prevent runtime errors. */}
+                    <div>{claimedCount != null ? `${claimedCount.toString()} / ${airdrop.recipientCount}` : 'Loading...'}</div>
                 </div>
             </div>
         )}

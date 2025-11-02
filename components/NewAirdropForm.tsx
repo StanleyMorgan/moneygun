@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -63,11 +64,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [newContractAddress, setNewContractAddress] = useState<Hex | null>(null);
 
   // Wagmi hooks
-  // Fix: Destructure `error` from the `useWriteContract` hook to handle transaction errors.
-  const { data: createTxHash, writeContract: createAirdrop, isPending: isCreatePending, error: createAirdropError, reset: resetCreate } = useWriteContract();
-  const { data: setMerkleTxHash, writeContract: setMerkleRoot, isPending: isSetMerklePending, error: setMerkleRootError, reset: resetSetMerkle } = useWriteContract();
+  // Fix: Remove unused `isCreatePending` and `isSetMerklePending` variables.
+  const { data: createTxHash, writeContract: createAirdrop, error: createAirdropError, reset: resetCreate } = useWriteContract();
+  const { data: setMerkleTxHash, writeContract: setMerkleRoot, error: setMerkleRootError, reset: resetSetMerkle } = useWriteContract();
 
-  // Fix: Get `data` (the receipt) from `useWaitForTransactionReceipt` to access `logs`.
+  // Get `data` (the receipt) from `useWaitForTransactionReceipt` to access `logs`.
   const { data: creationReceipt, isLoading: isWaitingForCreation, isSuccess: isCreationSuccess } = useWaitForTransactionReceipt({ hash: createTxHash });
   const { isLoading: isWaitingForMerkle, isSuccess: isMerkleSuccess } = useWaitForTransactionReceipt({ hash: setMerkleTxHash });
 
@@ -84,7 +85,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     } else if (isCreationSuccess && creationReceipt) {
       if (createTxHash) {
         // Find the event log to get the new contract address
-        // Fix: Access `logs` from the `creationReceipt` object, not the `isCreationSuccess` boolean.
+        // Access `logs` from the `creationReceipt` object.
         const airdropCreatedLog = creationReceipt.logs.find(
           (log: any) => log.topics[0] === keccak256(toHex('AirdropCreated(address,address,address)'))
         );
@@ -159,7 +160,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
           }, 500); // Poll every 500ms
         });
         
-        // Fix: Pass `chain` and `account` to `writeContract` as required by wagmi v2, and remove deprecated `chainId`.
         createAirdrop({
             address: AIRDROP_FACTORY_ADDRESS,
             abi: AirdropFactoryABI,
@@ -174,7 +174,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         // Step 3: Set Merkle Root on the new contract
         setStatus('setting_merkle_root');
         
-        // Fix: Pass `chain` and `account` to `writeContract` as required by wagmi v2, and remove deprecated `chainId`.
         setMerkleRoot({
             address: createdAddress,
             abi: AirdropABI,
@@ -219,8 +218,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
     } catch (err: any) {
       setStatus('error');
-      // Fix: Use the `error` variables from the `useWriteContract` hooks to get contract error details.
-      // The original code was trying to access `.error` on the `writeContract` function itself, which is incorrect.
+      // Use the `error` variables from the `useWriteContract` hooks to get contract error details.
       const contractError = createAirdropError || setMerkleRootError;
       const finalError = contractError instanceof BaseError ? contractError.shortMessage : (err.message || 'An unexpected error occurred.');
       setErrorMessage(finalError);

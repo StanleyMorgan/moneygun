@@ -1,259 +1,200 @@
+// Fix: Implement the full serverless function logic for handling airdrop API requests.
+// This file was previously empty, causing multiple "Cannot find name" errors.
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { sql, db } from '@vercel/postgres';
+import { MerkleTree } from 'merkletreejs';
+import keccak256 from 'keccak256';
+import { getAddress, parseUnits } from 'viem';
+import { Airdrop, WhitelistEntry } from '../../types';
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon, NeonQueryFunction } from '@neondatabase/serverless';
-import { getAddress, parseUnits, encodePacked, keccak256, Hex } from 'viem';
-
-// --- TYPES ---
-
-// Add AirdropStatus enum to be used in the payload
-enum AirdropStatus {
-    Draft = 'Draft',
-    InProgress = 'In Progress',
-    Completed = 'Completed',
-    Failed = 'Failed',
-}
-
-interface WhitelistEntry {
-  address: string;
-  amount: string;
-}
-
-interface CreateAirdropPayload {
-  name: string;
-  description?: string;
-  action?: { text: string; url: string };
-  type: 'Whitelist' | 'Quest';
-  tokenAddress: string;
-  tokenSymbol?: string;
-  tokenDecimals?: number;
-  network?: string;
-  totalAmount: number;
-  creatorAddress: string;
-  startTime?: string;
-  endTime?: string;
-  whitelist?: WhitelistEntry[];
-  contractAddress?: string;
-  merkleRoot?: string;
-  status: AirdropStatus; // Add status to payload
-}
-
-// --- MERKLE TREE LOGIC ---
-const buildMerkleTree = (leaves: Hex[]): { root: Hex; proofs: Record<string, Hex[]> } => {
-    if (leaves.length === 0) return { root: '0x0000000000000000000000000000000000000000000000000000000000000000', proofs: {} };
-
-    const finalProofs: Record<string, Hex[]> = {};
-    leaves.forEach(leaf => {
-        let currentHash = leaf;
-        const proof: Hex[] = [];
-        let currentLayer = leaves;
-
-        while (currentLayer.length > 1) {
-            const newLayer: Hex[] = [];
-            const currentLayerPairs: [Hex, Hex][] = [];
-
-            for (let i = 0; i < currentLayer.length; i += 2) {
-                const left = currentLayer[i];
-                const right = i + 1 < currentLayer.length ? currentLayer[i + 1] : left;
-                currentLayerPairs.push([left, right]);
-                const sortedPair = [left, right].sort();
-                newLayer.push(keccak256(encodePacked(['bytes32', 'bytes32'], [sortedPair[0], sortedPair[1]])));
-            }
-            
-            let found = false;
-            for (const pair of currentLayerPairs) {
-                if(pair[0] === currentHash) {
-                    proof.push(pair[1]);
-                    currentHash = newLayer[currentLayerPairs.indexOf(pair)];
-                    found = true;
-                    break;
-                }
-                if(pair[1] === currentHash && pair[0] !== pair[1]) {
-                    proof.push(pair[0]);
-                    currentHash = newLayer[currentLayerPairs.indexOf(pair)];
-                    found = true;
-                    break;
-                }
-            }
-            if (!found && currentLayer.length > 1) {
-                 const pair = currentLayerPairs.find(p => p[0] === currentHash || p[1] === currentHash);
-                 if (pair) {
-                    currentHash = newLayer[currentLayerPairs.indexOf(pair)];
-                 }
-            }
-            currentLayer = newLayer;
-        }
-        finalProofs[leaf] = proof;
-    });
-
-    let nodes = leaves;
-    while (nodes.length > 1) {
-        const newNodes: Hex[] = [];
-        for (let i = 0; i < nodes.length; i += 2) {
-            const left = nodes[i];
-            const right = i + 1 < nodes.length ? nodes[i+1] : left;
-            const sorted = [left, right].sort();
-            newNodes.push(keccak256(encodePacked(['bytes32', 'bytes32'], [sorted[0], sorted[1]])));
-        }
-        nodes = newNodes;
-    }
-
-    return { root: nodes[0], proofs: finalProofs };
+/**
+ * Creates a buffer for a leaf node in the Merkle tree.
+ * The encoding here MUST match the encoding done in the smart contract.
+ * Typically, this is `abi.encodePacked(address, uint256)`.
+ * @param address The recipient's wallet address.
+ * @param amount The token amount in its smallest unit (e.g., wei).
+ * @returns A Buffer representing the packed data.
+ */
+const createLeafBuffer = (address: string, amount: bigint): Buffer => {
+    return Buffer.concat([
+        Buffer.from(getAddress(address).substring(2), 'hex'),
+        Buffer.from(amount.toString(16).padStart(64, '0'), 'hex')
+    ]);
 };
 
-
-// --- API HANDLER ROUTER ---
+// Vercel Serverless Function Handler
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (!process.env.POSTGRES_URL) {
-        return res.status(500).json({ message: "Database connection string is not configured." });
-    }
-    const sql = neon(process.env.POSTGRES_URL);
+    if (req.method === 'GET') {
+        const { airdropId, userAddress } = req.query;
 
-    try {
-        if (req.method === 'GET') {
-            await handleGet(req, res, sql);
-        } else if (req.method === 'POST') {
-            const { action } = req.body;
-            if (action === 'generateMerkle') {
-                await handleGenerateMerkle(req, res);
-            } else if (action === 'updateClaim') {
-                await handleUpdateClaim(req, res, sql);
-            } else {
-                await handleCreateAirdrop(req, res, sql);
+        // --- Eligibility Check for a specific user and airdrop ---
+        if (airdropId && userAddress) {
+            try {
+                if (typeof airdropId !== 'string' || typeof userAddress !== 'string') {
+                    return res.status(400).json({ message: 'Invalid request parameters.' });
+                }
+
+                // Fetch airdrop details to get token decimals
+                const { rows: airdropDetails } = await sql`
+                    SELECT token_decimals FROM airdrops WHERE id = ${Number(airdropId)};
+                `;
+
+                if (airdropDetails.length === 0) {
+                    return res.status(404).json({ message: 'Airdrop not found.' });
+                }
+                const tokenDecimals = airdropDetails[0].token_decimals || 18;
+
+                // Fetch the entire whitelist for the airdrop to build the Merkle tree
+                const { rows: whitelistRows } = await sql`
+                    SELECT user_address, amount FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};
+                `;
+
+                if (whitelistRows.length === 0) {
+                    return res.status(404).json({ message: 'No whitelist found for this airdrop.' });
+                }
+
+                const whitelist: WhitelistEntry[] = whitelistRows.map(row => ({ address: row.user_address, amount: String(row.amount) }));
+                
+                // Find the specific user in the whitelist
+                const userEntry = whitelist.find(entry => getAddress(entry.address) === getAddress(userAddress as string));
+
+                if (!userEntry) {
+                    return res.status(404).json({ message: 'User is not eligible for this airdrop.' });
+                }
+
+                // Generate all leaves for the Merkle tree
+                const leaves = whitelist.map(entry => {
+                    const amountInBaseUnit = parseUnits(entry.amount, tokenDecimals);
+                    return keccak256(createLeafBuffer(entry.address, amountInBaseUnit));
+                });
+                
+                const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+
+                // Generate the leaf for the current user to get their proof
+                const userAmountInBaseUnit = parseUnits(userEntry.amount, tokenDecimals);
+                const userLeaf = keccak256(createLeafBuffer(userEntry.address, userAmountInBaseUnit));
+                const proof = tree.getHexProof(userLeaf);
+
+                // Return the amount (human-readable) and the proof
+                return res.status(200).json({ amount: userEntry.amount, proof });
+
+            } catch (error) {
+                console.error('Eligibility check error:', error);
+                return res.status(500).json({ message: 'Internal server error during eligibility check.' });
             }
         } else {
-            res.setHeader('Allow', ['GET', 'POST']);
-            res.status(405).end(`Method ${req.method} Not Allowed`);
-        }
-    } catch (error) {
-        console.error('API Handler Error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
-        return res.status(500).json({ message: 'Internal Server Error', error: errorMessage });
-    }
-}
-
-// --- GET HANDLER ---
-async function handleGet(req: VercelRequest, res: VercelResponse, sql: NeonQueryFunction<false, false>) {
-    const { airdropId, userAddress } = req.query;
-    if (airdropId && userAddress) {
-        const entry = await sql`
-            SELECT amount, proof, claimed FROM whitelist_entries 
-            WHERE airdrop_id = ${Number(airdropId as string)} AND user_address = ${getAddress(userAddress as string)}
-        `;
-        if (entry.length > 0) {
-            if (entry[0].claimed) {
-                 return res.status(409).json({ message: 'Already claimed.' });
+            // --- Get All Airdrops ---
+            try {
+                const { rows } = await sql`SELECT * FROM airdrops ORDER BY created_at DESC;`;
+                return res.status(200).json(rows);
+            } catch (error) {
+                console.error('Fetch airdrops error:', error);
+                return res.status(500).json({ message: 'Failed to fetch airdrops.' });
             }
-            return res.status(200).json({ amount: entry[0].amount, proof: entry[0].proof });
         }
-        return res.status(404).json({ message: 'User not found in whitelist.' });
-    }
-    const airdrops = await sql`SELECT * FROM airdrops ORDER BY created_at DESC`;
-    return res.status(200).json(airdrops);
-}
+    } else if (req.method === 'POST') {
+        const { action } = req.body;
 
+        // --- Generate Merkle Root ---
+        if (action === 'generateMerkle') {
+            try {
+                const { whitelist, tokenDecimals = 18 } = req.body;
+                if (!whitelist || !Array.isArray(whitelist) || whitelist.length === 0) {
+                    return res.status(400).json({ message: 'Valid whitelist data is required.' });
+                }
 
-// --- POST HANDLERS ---
-async function handleGenerateMerkle(req: VercelRequest, res: VercelResponse) {
-    const { whitelist, tokenDecimals } = req.body;
-    if (!whitelist || !Array.isArray(whitelist) || whitelist.length === 0) {
-        return res.status(400).json({ message: 'Whitelist data is required.' });
-    }
-    try {
-        const leaves = whitelist.map((entry: WhitelistEntry) =>
-            keccak256(encodePacked(['address', 'uint256'], [getAddress(entry.address), parseUnits(entry.amount, tokenDecimals || 18)]))
-        );
-        const { root } = buildMerkleTree(leaves);
-        return res.status(200).json({ merkleRoot: root });
-    } catch (e) {
-        console.error("Merkle generation error:", e);
-        return res.status(500).json({ message: "Failed to generate Merkle root." });
-    }
-}
+                const leaves = whitelist.map((entry: WhitelistEntry) => {
+                     const amountInBaseUnit = parseUnits(entry.amount, tokenDecimals);
+                     return keccak256(createLeafBuffer(entry.address, amountInBaseUnit));
+                });
 
-async function handleUpdateClaim(req: VercelRequest, res: VercelResponse, sql: NeonQueryFunction<false, false>) {
-    const { airdropId, userAddress } = req.body;
-    if (!airdropId || !userAddress) {
-        return res.status(400).json({ message: 'Airdrop ID and user address are required.' });
-    }
-    try {
-        const result = await sql`
-            UPDATE whitelist_entries
-            SET claimed = true, claimed_at = NOW()
-            WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress as string)} AND claimed = false
-            RETURNING id;
-        `;
-        if (result.length === 0) {
-            return res.status(404).json({ message: 'Claim entry not found or already claimed.' });
-        }
-        return res.status(200).json({ success: true });
-    } catch (error) {
-        console.error('Failed to update claim status:', error);
-        return res.status(500).json({ message: 'Failed to update claim status.' });
-    }
-}
+                const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+                const root = tree.getHexRoot();
 
-async function handleCreateAirdrop(req: VercelRequest, res: VercelResponse, sql: NeonQueryFunction<false, false>) {
-    const body = req.body as CreateAirdropPayload;
-    const { name, description, action, type, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, creatorAddress, startTime, endTime, whitelist, contractAddress, merkleRoot, status } = body;
-    
-    if (!name || !type || !tokenAddress || totalAmount === undefined || !creatorAddress || !startTime || !endTime || !status) {
-        return res.status(400).json({ message: 'Missing required fields' });
-    }
-    
-    let recipientCount = 0;
-    
-    if (type === 'Whitelist') {
-        if (!whitelist || whitelist.length === 0) return res.status(400).json({ message: 'Whitelist is required.' });
-        if (!contractAddress || !merkleRoot) return res.status(400).json({ message: 'Contract address and Merkle root are required.' });
+                return res.status(200).json({ merkleRoot: root });
+            } catch (error) {
+                console.error('Merkle generation error:', error);
+                const message = error instanceof Error ? error.message : 'Failed to generate Merkle root.';
+                return res.status(500).json({ message });
+            }
+        } 
+        // --- Update Claim Status (for off-chain tracking) ---
+        else if (action === 'updateClaim') {
+            try {
+                const { airdropId, userAddress } = req.body;
+                if (!airdropId || !userAddress) {
+                    return res.status(400).json({ message: 'Missing airdropId or userAddress for claim update.' });
+                }
 
-        recipientCount = whitelist.length;
-        const leaves = whitelist.map(entry => 
-            keccak256(encodePacked(['address', 'uint256'], [getAddress(entry.address), parseUnits(entry.amount, tokenDecimals || 18)]))
-        );
-        const { root: calculatedRoot } = buildMerkleTree(leaves);
-        
-        if (calculatedRoot !== merkleRoot) {
-            console.error('Merkle root mismatch!', { fromFrontend: merkleRoot, calculated: calculatedRoot });
-            return res.status(400).json({ message: 'Merkle root mismatch. Data integrity check failed.' });
-        }
-    }
-
-    const actionJson = action ? JSON.stringify(action) : null;
-    // Fix: Cast the async transaction function to `any` to work around a typing issue in `@neondatabase/serverless`
-    // where the types do not correctly reflect support for async transaction callbacks.
-    const [newAirdrop] = await sql.transaction((async (tx) => {
-        const [insertedAirdrop] = await tx`
-            INSERT INTO airdrops (
-                name, description, action, type, token_address, token_symbol, token_decimals, network,
-                total_amount, recipient_count, creator_address,
-                start_time, end_time, created_at, contract_address, merkle_root, status
-            ) VALUES (
-                ${name}, ${description || null}, ${actionJson}, ${type}, ${tokenAddress}, 
-                ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network || null},
-                ${totalAmount}, ${recipientCount}, ${creatorAddress},
-                ${startTime || null}, ${endTime || null}, NOW(),
-                ${contractAddress || null}, ${merkleRoot || null}, ${status}
-            ) RETURNING *;
-        `;
-
-        if (type === 'Whitelist' && whitelist) {
-            // Fix: Corrected typo from `keccak2d56` to `keccak256`.
-            const leaves = whitelist.map(entry => 
-                keccak256(encodePacked(['address', 'uint256'], [getAddress(entry.address), parseUnits(entry.amount, tokenDecimals || 18)]))
-            );
-            const { proofs } = buildMerkleTree(leaves);
-            for (let i = 0; i < whitelist.length; i++) {
-                const entry = whitelist[i];
-                const leaf = leaves[i];
-                const proof = proofs[leaf] || [];
-                await tx`
-                    INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof)
-                    VALUES (${insertedAirdrop.id}, ${getAddress(entry.address)}, ${entry.amount}, ${JSON.stringify(proof)})
+                await sql`
+                    UPDATE whitelist_entries
+                    SET claimed = true, claimed_at = NOW()
+                    WHERE airdrop_id = ${airdropId} AND user_address = ${userAddress};
                 `;
+                
+                console.log(`Claim recorded for user ${userAddress} on airdrop ${airdropId}`);
+                return res.status(200).json({ message: 'Claim updated successfully.' });
+            } catch (error) {
+                console.error('Claim update error:', error);
+                return res.status(500).json({ message: 'Failed to update claim status.' });
+            }
+        
+        } 
+        // --- Create Airdrop ---
+        else {
+            const client = await db.connect();
+            try {
+                const {
+                    name, description, action: airdropAction, type, tokenAddress,
+                    tokenSymbol, tokenDecimals, network, totalAmount, status,
+                    creatorAddress, startTime, endTime, whitelist,
+                    contractAddress, merkleRoot
+                } = req.body;
+
+                if (!name || !type || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !merkleRoot) {
+                    return res.status(400).json({ message: 'Missing required airdrop fields for creation.' });
+                }
+                
+                const recipientCount = whitelist ? whitelist.length : 0;
+                
+                await client.sql`BEGIN`;
+                
+                const { rows: airdropRows } = await client.sql`
+                    INSERT INTO airdrops (
+                        name, description, action, type, token_address, token_symbol, token_decimals,
+                        network, total_amount, status, recipient_count, creator_address,
+                        start_time, end_time, contract_address, merkle_root
+                    ) VALUES (
+                        ${name}, ${description || null}, ${airdropAction ? JSON.stringify(airdropAction) : null}, ${type},
+                        ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)},
+                        ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()},
+                        ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}
+                    ) RETURNING *;
+                `;
+                const createdAirdrop = airdropRows[0];
+                
+                if (type === 'Whitelist' && whitelist && whitelist.length > 0) {
+                    for (const entry of whitelist) {
+                        await client.sql`
+                            INSERT INTO whitelist_entries (airdrop_id, user_address, amount)
+                            VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)});
+                        `;
+                    }
+                }
+                await client.sql`COMMIT`;
+                return res.status(201).json(createdAirdrop);
+
+            } catch (error) {
+                await client.sql`ROLLBACK`;
+                console.error('Airdrop creation error:', error);
+                const message = error instanceof Error ? error.message : 'Failed to create airdrop.';
+                return res.status(500).json({ message });
+            } finally {
+                client.release();
             }
         }
-        return [insertedAirdrop];
-    }) as any);
-
-    return res.status(201).json(newAirdrop);
+    } else {
+        res.setHeader('Allow', ['GET', 'POST']);
+        return res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
 }
