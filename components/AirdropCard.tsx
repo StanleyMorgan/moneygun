@@ -7,32 +7,41 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { airdropABI } from '../lib/abi';
 import { formatUnits, parseUnits, getAddress } from 'viem';
 
-// This function computes the status based on start and end times if the status is 'In Progress'.
 export const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
-  if (airdrop.status !== AirdropStatus.InProgress) {
+    if (airdrop.status === AirdropStatus.Failed) {
+        return AirdropStatus.Failed;
+    }
+    if (airdrop.status === AirdropStatus.Draft) {
+        return AirdropStatus.Draft;
+    }
+
+    if (airdrop.status === AirdropStatus.Active) {
+        const now = new Date();
+        const startTime = airdrop.startTime ? new Date(airdrop.startTime) : null;
+        const endTime = airdrop.endTime ? new Date(airdrop.endTime) : null;
+
+        if (startTime && now < startTime) {
+            return AirdropStatus.Planned;
+        }
+        if (endTime && now > endTime) {
+            return AirdropStatus.Ended;
+        }
+        if (startTime && now >= startTime && (!endTime || now <= endTime)) {
+            return AirdropStatus.InProgress;
+        }
+    }
     return airdrop.status;
-  }
-
-  const now = new Date();
-  const startTime = airdrop.startTime ? new Date(airdrop.startTime) : null;
-  const endTime = airdrop.endTime ? new Date(airdrop.endTime) : null;
-
-  if (startTime && now < startTime) {
-    return AirdropStatus.Draft; // Or a new "Scheduled" status if you add one
-  }
-  if (endTime && now > endTime) {
-    return AirdropStatus.Completed;
-  }
-  return AirdropStatus.InProgress;
 };
 
 
 const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
-  const statusClasses = {
+  const statusClasses: Record<AirdropStatus, string> = {
     [AirdropStatus.Draft]: 'bg-slate-100 text-slate-600',
+    [AirdropStatus.Planned]: 'bg-yellow-100 text-yellow-600',
     [AirdropStatus.InProgress]: 'bg-blue-100 text-blue-600 animate-pulse',
-    [AirdropStatus.Completed]: 'bg-green-100 text-green-600',
+    [AirdropStatus.Ended]: 'bg-green-100 text-green-600',
     [AirdropStatus.Failed]: 'bg-red-100 text-red-600',
+    [AirdropStatus.Active]: 'bg-purple-100 text-purple-600', // Fallback
   };
   return (
     <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusClasses[status]}`}>
@@ -43,12 +52,13 @@ const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
 
 interface AirdropCardProps {
   airdrop: Airdrop;
+  onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
 }
 
-const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
-    // Fix: Add `chain` to the `useAccount` hook to explicitly pass it to `writeContract`.
+const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) => {
     const { address, isConnected, chain } = useAccount();
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [claimError, setClaimError] = useState('');
 
     console.log(`[AirdropCard Render - ${airdrop.name}] Account State:`, { address, isConnected });
@@ -64,23 +74,55 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
     const { data: contractBalance } = useReadContract({
         ...contractReadConfig,
         functionName: 'balance',
-        // Fix: The 'watch' property is deprecated in this version of wagmi's useReadContract hook.
-        // The hook automatically updates on new blocks by default.
     });
 
     const { data: claimedCount } = useReadContract({
         ...contractReadConfig,
         functionName: 'claimedCount',
-        // Fix: The 'watch' property is deprecated in this version of wagmi's useReadContract hook.
-        // The hook automatically updates on new blocks by default.
     });
 
     const isOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
     const computedStatus = getComputedStatus(airdrop);
 
+    const handleStatusToggle = async () => {
+        if (!isOwner || !address) return;
+
+        const newStatus = airdrop.status === AirdropStatus.Draft ? AirdropStatus.Active : AirdropStatus.Draft;
+        
+        setIsUpdatingStatus(true);
+        // Optimistic UI update
+        onAirdropUpdate(airdrop.id, { status: newStatus });
+
+        try {
+            const response = await fetch('/api/airdrops', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'updateStatus', 
+                    airdropId: airdrop.id, 
+                    newStatus, 
+                    userAddress: address 
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update status.');
+            }
+        } catch (error: any) {
+            console.error("Failed to update airdrop status:", error);
+            // Revert on error
+            onAirdropUpdate(airdrop.id, { status: airdrop.status });
+            // Optionally show an error message to the user
+            alert(`Error: ${error.message}`);
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+
     const handleClaim = async () => {
         setClaimError('');
-        // Fix: Also check for `chain` availability before proceeding.
         if (!isConnected || !address || !chain) {
             setClaimError('Please connect your wallet.');
             console.error('[Claim Button Clicked] Error: Wallet not connected or chain not available.');
@@ -106,8 +148,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
             console.log('[Claim] Step 2: Calling "claim" on contract...');
             const amountInBaseUnits = parseUnits(amount, airdrop.tokenDecimals || 18);
             
-            // Fix: Explicitly pass account and chain to `writeContract` as they are not being
-            // inferred from the context, causing a TypeScript error.
             writeContract({
                 address: getAddress(airdrop.contractAddress),
                 abi: airdropABI,
@@ -124,7 +164,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
         }
     };
     
-    // Effect to update claim status in DB after successful transaction
     useEffect(() => {
         const updateClaimInDb = async () => {
             if (isClaimedSuccess && address) {
@@ -140,7 +179,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
                     console.log('[Claim] Step 3 Success: DB updated.');
                 } catch (dbError) {
                     console.error('[Claim] Failed to update DB:', dbError);
-                    // Non-critical error, the user has their tokens. Maybe log this.
                 }
             }
         };
@@ -191,10 +229,26 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop }) => {
             </div>
 
             {isOwner && (
-                <div className="text-xs bg-slate-50 p-3 rounded-md">
-                    <p className="font-medium text-slate-700">Owner Actions</p>
-                    <p className="text-slate-600 mt-1">To fund the airdrop, send {airdrop.tokenSymbol} tokens to this address on {airdrop.network}:</p>
-                    <code className="block bg-slate-200 text-slate-800 rounded px-2 py-1 mt-2 text-center break-all">{airdrop.contractAddress}</code>
+                <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
+                    <div>
+                        <p className="font-medium text-slate-700">Owner Actions</p>
+                        <p className="text-slate-600 mt-1">To fund the airdrop, send {airdrop.tokenSymbol} tokens to this address on {airdrop.network}:</p>
+                        <code className="block bg-slate-200 text-slate-800 rounded px-2 py-1 mt-2 text-center break-all">{airdrop.contractAddress}</code>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200">
+                        <p className="text-slate-600">Change status. Active airdrops can be claimed by users during the scheduled time.</p>
+                        <button
+                            onClick={handleStatusToggle}
+                            disabled={isUpdatingStatus}
+                            className={`mt-2 w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                airdrop.status === AirdropStatus.Draft
+                                ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                                : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500'
+                            }`}
+                        >
+                            {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate Airdrop' : 'Set to Draft')}
+                        </button>
+                    </div>
                 </div>
             )}
             

@@ -119,7 +119,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(500).json({ message: 'Failed to update claim status.' });
             }
         
-        } 
+        }
+        // --- Update Airdrop Status ---
+        else if (action === 'updateStatus') {
+            try {
+                const { airdropId, newStatus, userAddress } = req.body;
+
+                if (!airdropId || !newStatus || !userAddress) {
+                    return res.status(400).json({ message: 'Missing required parameters for status update.' });
+                }
+                if (newStatus !== 'Draft' && newStatus !== 'Active') {
+                    return res.status(400).json({ message: 'Invalid status provided. Must be "Draft" or "Active".' });
+                }
+                if (!isAddress(userAddress)) {
+                    return res.status(400).json({ message: 'Invalid user address provided.' });
+                }
+
+                const { rows } = await sql`SELECT creator_address FROM airdrops WHERE id = ${Number(airdropId)}`;
+                if (rows.length === 0) {
+                    return res.status(404).json({ message: 'Airdrop not found.' });
+                }
+
+                if (getAddress(rows[0].creator_address) !== getAddress(userAddress)) {
+                    return res.status(403).json({ message: 'Only the airdrop creator can change the status.' });
+                }
+
+                await sql`
+                    UPDATE airdrops 
+                    SET status = ${newStatus}
+                    WHERE id = ${Number(airdropId)};
+                `;
+                
+                return res.status(200).json({ message: 'Status updated successfully.' });
+
+            } catch (error) {
+                console.error('Airdrop status update error:', error);
+                const message = error instanceof Error ? error.message : 'Failed to update airdrop status.';
+                return res.status(500).json({ message });
+            }
+        }
         // --- Create Airdrop ---
         else {
             const client = await db.connect();

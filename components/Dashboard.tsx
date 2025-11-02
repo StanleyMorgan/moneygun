@@ -6,21 +6,30 @@ import { PlusIcon } from './icons/PlusIcon';
 interface DashboardProps {
   airdrops: Airdrop[];
   onCreateNew: () => void;
+  onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
-  // Sort airdrops: 'In Progress' first, then by most recent, based on computed status
+const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropUpdate }) => {
+  const statusOrder: Record<AirdropStatus, number> = {
+    [AirdropStatus.InProgress]: 1,
+    [AirdropStatus.Planned]: 2,
+    [AirdropStatus.Draft]: 3,
+    [AirdropStatus.Ended]: 4,
+    [AirdropStatus.Failed]: 5,
+    [AirdropStatus.Active]: 6, // Fallback
+  };
+
   const sortedAirdrops = [...airdrops].sort((a, b) => {
     const statusA = getComputedStatus(a);
     const statusB = getComputedStatus(b);
 
-    if (statusA === AirdropStatus.InProgress && statusB !== AirdropStatus.InProgress) {
-      return -1;
+    const orderA = statusOrder[statusA] ?? 99;
+    const orderB = statusOrder[statusB] ?? 99;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
     }
-    if (statusA !== AirdropStatus.InProgress && statusB === AirdropStatus.InProgress) {
-      return 1;
-    }
-    // For items with the same status, sort by creation date (newest first)
+
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return timeB - timeA;
@@ -41,7 +50,7 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
       {sortedAirdrops.length > 0 ? (
         <div className="space-y-3">
           {sortedAirdrops.map(airdrop => (
-            <AirdropCard key={airdrop.id} airdrop={airdrop} />
+            <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} />
           ))}
         </div>
       ) : (

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -53,6 +54,14 @@ const App: React.FC = () => {
       alert(`Failed to create airdrop: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [address]);
+  
+  const handleAirdropUpdate = useCallback((airdropId: number, updatedFields: Partial<Airdrop>) => {
+    setAirdrops(prevAirdrops =>
+      prevAirdrops.map(ad =>
+        ad.id === airdropId ? { ...ad, ...updatedFields } : ad
+      )
+    );
+  }, []);
 
   const handleCreateNew = () => setView('new-airdrop');
   const handleBackToDashboard = () => setView('dashboard');
@@ -67,7 +76,7 @@ const App: React.FC = () => {
     }
 
     if (view === 'dashboard') {
-      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} />;
+      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} onAirdropUpdate={handleAirdropUpdate} />;
     }
 
     if (view === 'new-airdrop') {

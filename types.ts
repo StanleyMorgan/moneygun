@@ -1,4 +1,5 @@
 
+
 export enum AirdropType {
   Whitelist = 'Whitelist',
   Quest = 'Quest',
@@ -6,8 +7,10 @@ export enum AirdropType {
 
 export enum AirdropStatus {
   Draft = 'Draft',
+  Active = 'Active',
+  Planned = 'Planned',
   InProgress = 'In Progress',
-  Completed = 'Completed',
+  Ended = 'Ended',
   Failed = 'Failed',
 }
 
