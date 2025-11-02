@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import Papa from 'papaparse';
-// Fix: Import `decodeEventLog` from `viem` to correctly parse transaction logs.
-import { getAddress, isAddress, decodeEventLog } from 'viem';
+// Fix: Import `parseEventLogs` from `viem` to correctly parse transaction logs. `decodeEventLog` is no longer needed.
+import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropFactoryABI, airdropABI } from '../lib/abi';
 
@@ -183,17 +183,25 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     if (isCreateSuccess && createReceipt) {
         console.log('[Create Airdrop] Step 2 Success: Transaction confirmed.');
         try {
-            // Fix: Correctly parse the event log from the transaction receipt to get the new contract address.
-            // The previous code had a reference error to 'viem' and incorrect parsing logic.
-            if (!createReceipt.logs || createReceipt.logs.length === 0) {
-              throw new Error("No logs found in transaction receipt.");
-            }
-            const decodedLog = decodeEventLog({
+            // Fix: Use viem's `parseEventLogs` to robustly find and decode the `AirdropCreated` event.
+            // This avoids errors if other events (like 'Transfer') are emitted first in the transaction.
+            const logs = parseEventLogs({
                 abi: airdropFactoryABI,
-                data: createReceipt.logs[0].data,
-                topics: createReceipt.logs[0].topics
+                logs: createReceipt.logs,
+                eventName: 'AirdropCreated',
             });
-            const newAddress = (decodedLog.args as any).airdrop;
+
+            if (logs.length === 0) {
+                console.error("Could not find AirdropCreated event in transaction logs. All logs:", createReceipt.logs);
+                throw new Error("AirdropCreated event not found in transaction logs.");
+            }
+
+            // The factory creates one airdrop per transaction, so we expect one log.
+            const newAddress = logs[0].args.airdrop;
+            if (!newAddress) {
+                throw new Error("Parsed log is missing the 'airdrop' address argument.");
+            }
+            
             console.log('[Create Airdrop] Step 3: Parsed new airdrop address:', newAddress);
             setNewAirdropAddress(newAddress);
             setStatus('settingMerkle');
