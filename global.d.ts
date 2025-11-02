@@ -4,7 +4,8 @@
 // This avoids module augmentation issues that can arise from tsconfig misconfigurations.
 
 // Define ChainNamespace as a global type.
-type ChainNamespace = 'eip155' | 'solana';
+// Fix: Add 'declare' to make this a global type definition, which is required for top-level types in a global .d.ts script file.
+declare type ChainNamespace = 'eip155' | 'solana';
 
 // Augment the NodeJS namespace to include environment variables.
 namespace NodeJS {

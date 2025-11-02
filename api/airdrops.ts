@@ -4,7 +4,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
 // Fix: Use `keccak256` from `viem` to avoid a separate dependency and typing issues.
-import { getAddress, parseUnits, keccak256 as viemKeccak256 } from 'viem';
+// Fix: Import 'isAddress' from viem to validate wallet addresses.
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress } from 'viem';
 // Fix: Correct the import path and remove the unused 'Airdrop' type.
 import { WhitelistEntry } from '../types';
 // Fix: Import `Buffer` to resolve "Cannot find name 'Buffer'" errors in Node.js context.
@@ -36,53 +37,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // --- Eligibility Check for a specific user and airdrop ---
         if (airdropId && userAddress) {
             try {
-                if (typeof airdropId !== 'string' || typeof userAddress !== 'string') {
+                if (typeof airdropId !== 'string' || typeof userAddress !== 'string' || !isAddress(userAddress)) {
                     return res.status(400).json({ message: 'Invalid request parameters.' });
                 }
 
-                // Fetch airdrop details to get token decimals
-                const { rows: airdropDetails } = await sql`
-                    SELECT token_decimals FROM airdrops WHERE id = ${Number(airdropId)};
+                // Fetch the specific user's entry, which now includes the pre-calculated proof
+                const { rows: userEntries } = await sql`
+                    SELECT amount, proof FROM whitelist_entries 
+                    WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress)};
                 `;
 
-                if (airdropDetails.length === 0) {
-                    return res.status(404).json({ message: 'Airdrop not found.' });
-                }
-                const tokenDecimals = airdropDetails[0].token_decimals || 18;
-
-                // Fetch the entire whitelist for the airdrop to build the Merkle tree
-                const { rows: whitelistRows } = await sql`
-                    SELECT user_address, amount FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};
-                `;
-
-                if (whitelistRows.length === 0) {
-                    return res.status(404).json({ message: 'No whitelist found for this airdrop.' });
-                }
-
-                const whitelist: WhitelistEntry[] = whitelistRows.map(row => ({ address: row.user_address, amount: String(row.amount) }));
-                
-                // Find the specific user in the whitelist
-                const userEntry = whitelist.find(entry => getAddress(entry.address) === getAddress(userAddress as string));
-
-                if (!userEntry) {
+                if (userEntries.length === 0) {
                     return res.status(404).json({ message: 'User is not eligible for this airdrop.' });
                 }
-
-                // Generate all leaves for the Merkle tree
-                const leaves = whitelist.map(entry => {
-                    const amountInBaseUnit = parseUnits(entry.amount, tokenDecimals);
-                    return keccak256(createLeafBuffer(entry.address, amountInBaseUnit));
-                });
                 
-                const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+                const userEntry = userEntries[0];
 
-                // Generate the leaf for the current user to get their proof
-                const userAmountInBaseUnit = parseUnits(userEntry.amount, tokenDecimals);
-                const userLeaf = keccak256(createLeafBuffer(userEntry.address, userAmountInBaseUnit));
-                const proof = tree.getHexProof(userLeaf);
+                // The proof is stored as a JSON string array. It needs to be returned as a parsed object.
+                const proof = typeof userEntry.proof === 'string' ? JSON.parse(userEntry.proof) : userEntry.proof;
 
-                // Return the amount (human-readable) and the proof
-                return res.status(200).json({ amount: userEntry.amount, proof });
+                return res.status(200).json({ amount: String(userEntry.amount), proof });
 
             } catch (error) {
                 console.error('Eligibility check error:', error);
@@ -163,6 +137,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 
                 const recipientCount = whitelist ? whitelist.length : 0;
                 
+                // Pre-build the Merkle tree to generate proofs for each entry.
+                const tokenDecimalsForProof = tokenDecimals || 18;
+                const leaves = whitelist.map((entry: WhitelistEntry) => {
+                     const amountInBaseUnit = parseUnits(entry.amount, tokenDecimalsForProof);
+                     return keccak256(createLeafBuffer(entry.address, amountInBaseUnit));
+                });
+                const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+                
                 await client.sql`BEGIN`;
                 
                 const { rows: airdropRows } = await client.sql`
@@ -181,9 +163,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 
                 if (type === 'Whitelist' && whitelist && whitelist.length > 0) {
                     for (const entry of whitelist) {
+                        const amountInBaseUnit = parseUnits(entry.amount, tokenDecimalsForProof);
+                        const leaf = keccak256(createLeafBuffer(entry.address, amountInBaseUnit));
+                        const proof = tree.getHexProof(leaf);
+
                         await client.sql`
-                            INSERT INTO whitelist_entries (airdrop_id, user_address, amount)
-                            VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)});
+                            INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof)
+                            VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});
                         `;
                     }
                 }
