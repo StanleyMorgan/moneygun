@@ -1,7 +1,9 @@
 // Fix: The provider has been completely rewritten to follow the official @reown/appkit documentation.
 // This resolves critical issues with wallet state synchronization and contract calls.
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+// Fix: Import `QueryClient` directly from `@tanstack/query-core` to resolve a potential type export issue in `@tanstack/react-query`.
+import { QueryClient } from '@tanstack/query-core';
 import { WagmiProvider } from 'wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';

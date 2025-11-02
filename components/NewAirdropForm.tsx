@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -258,7 +259,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     <input type="text" id="tokenSymbol" value={tokenSymbol} onChange={e => setTokenSymbol(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
                 </div>
                 <div>
-                    <label htmlFor="tokenDecimals" className="block text-xs font-medium text-slate-600 mb-1">Token Decimals</p>
+                    <label htmlFor="tokenDecimals" className="block text-xs font-medium text-slate-600 mb-1">Token Decimals</label>
                     <input type="number" id="tokenDecimals" value={tokenDecimals} onChange={e => setTokenDecimals(Number(e.target.value))} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
                 </div>
             </div>
