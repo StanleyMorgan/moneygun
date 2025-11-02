@@ -3,9 +3,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import keccak256 from 'keccak256';
-import { getAddress, parseUnits } from 'viem';
-import { Airdrop, WhitelistEntry } from '../../types';
+// Fix: Use `keccak256` from `viem` to avoid a separate dependency and typing issues.
+import { getAddress, parseUnits, keccak256 as viemKeccak256 } from 'viem';
+// Fix: Correct the import path and remove the unused 'Airdrop' type.
+import { WhitelistEntry } from '../types';
+
+// Fix: Add a wrapper for viem's keccak256 to return a Buffer, which is expected by `merkletreejs`.
+const keccak256 = (data: Buffer): Buffer => Buffer.from(viemKeccak256(data, 'bytes'));
 
 /**
  * Creates a buffer for a leaf node in the Merkle tree.

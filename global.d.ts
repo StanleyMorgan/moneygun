@@ -1,12 +1,5 @@
 /// <reference types="react" />
 
-// Add module declaration for keccak256 since @types/keccak256 does not exist.
-declare module 'keccak256' {
-  // This assumes the 'Buffer' type is available in the execution environment (Node.js for the API).
-  function keccak256(data: Buffer | string): Buffer;
-  export = keccak256;
-}
-
 // FIX: Correctly define global types and JSX augmentations by wrapping them in 'declare global'.
 // This ensures TypeScript recognizes custom elements and global types across the project.
 declare global {
