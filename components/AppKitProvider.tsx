@@ -35,7 +35,9 @@ if (projectId) {
   wagmiAdapter = new WagmiAdapter({
     networks,
     projectId,
-    ssr: true
+    // Fix: Set ssr to false for client-side only applications like Farcaster mini-apps
+    // to prevent state hydration issues.
+    ssr: false
   });
 
   createAppKit({

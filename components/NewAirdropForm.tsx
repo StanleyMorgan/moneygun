@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -62,55 +63,77 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [status, setStatus] = useState<CreationStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [newContractAddress, setNewContractAddress] = useState<Hex | null>(null);
+  const [merkleRootForSaving, setMerkleRootForSaving] = useState<Hex | null>(null);
+
 
   // Wagmi hooks
-  // Fix: Remove unused `isCreatePending` and `isSetMerklePending` variables.
   const { data: createTxHash, writeContract: createAirdrop, error: createAirdropError, reset: resetCreate } = useWriteContract();
   const { data: setMerkleTxHash, writeContract: setMerkleRoot, error: setMerkleRootError, reset: resetSetMerkle } = useWriteContract();
 
-  // Get `data` (the receipt) from `useWaitForTransactionReceipt` to access `logs`.
-  const { data: creationReceipt, isLoading: isWaitingForCreation, isSuccess: isCreationSuccess } = useWaitForTransactionReceipt({ hash: createTxHash });
-  const { isLoading: isWaitingForMerkle, isSuccess: isMerkleSuccess } = useWaitForTransactionReceipt({ hash: setMerkleTxHash });
+  const { data: creationReceipt, isSuccess: isCreationSuccess } = useWaitForTransactionReceipt({ hash: createTxHash });
+  const { isSuccess: isMerkleSuccess } = useWaitForTransactionReceipt({ hash: setMerkleTxHash });
 
+  // --- Multi-step transaction flow using useEffect ---
 
-  // Effect to handle the creation flow after the factory transaction is successful
+  // Step 2: After the contract is created, set the merkle root
   useEffect(() => {
-    const handleCreationFailed = (error: any) => {
-        setStatus('error');
-        setErrorMessage(error instanceof BaseError ? error.shortMessage : 'Contract creation failed.');
-    };
-
-    if (isWaitingForCreation) {
+    if (isCreationSuccess && creationReceipt && merkleRootForSaving && address) {
       setStatus('waiting_for_creation');
-    } else if (isCreationSuccess && creationReceipt) {
-      if (createTxHash) {
-        // Find the event log to get the new contract address
-        // Access `logs` from the `creationReceipt` object.
-        const airdropCreatedLog = creationReceipt.logs.find(
-          (log: any) => log.topics[0] === keccak256(toHex('AirdropCreated(address,address,address)'))
-        );
-        if (airdropCreatedLog) {
-          const decodedLog = decodeEventLog({ abi: AirdropFactoryABI, eventName: 'AirdropCreated', data: airdropCreatedLog.data as Hex, topics: airdropCreatedLog.topics as any });
-          const newAddress = (decodedLog.args as any).airdrop as Hex;
-          setNewContractAddress(newAddress);
-          // Trigger the next step in the flow from handleSubmit's promise chain
-        } else {
-          handleCreationFailed(new Error('Could not find AirdropCreated event log.'));
-        }
+      const airdropCreatedLog = creationReceipt.logs.find(
+        (log: any) => log.topics[0] === keccak256(toHex('AirdropCreated(address,address,address)'))
+      );
+
+      if (airdropCreatedLog) {
+        const decodedLog = decodeEventLog({ abi: AirdropFactoryABI, eventName: 'AirdropCreated', data: airdropCreatedLog.data as Hex, topics: airdropCreatedLog.topics as any });
+        const newAddress = (decodedLog.args as any).airdrop as Hex;
+        setNewContractAddress(newAddress); // Save address for the final step
+
+        setStatus('setting_merkle_root');
+        setMerkleRoot({
+          address: newAddress,
+          abi: AirdropABI,
+          functionName: 'setMerkleRoot',
+          args: [merkleRootForSaving],
+          chain: baseSepolia,
+          account: address
+        });
+      } else {
+        setStatus('error');
+        setErrorMessage('Could not find AirdropCreated event log.');
       }
     }
-  }, [isWaitingForCreation, isCreationSuccess, createTxHash, creationReceipt]);
+  }, [isCreationSuccess, creationReceipt, merkleRootForSaving, address, setMerkleRoot]);
 
-  // Effect to update status for the second transaction (setMerkleRoot)
+  // Step 3: After the merkle root is set, save everything to the database
   useEffect(() => {
-    if (isWaitingForMerkle) {
-        setStatus('waiting_for_merkle');
-    } else if (isMerkleSuccess) {
-        // This success is the final on-chain step, handled in handleSubmit
+    if (isMerkleSuccess && newContractAddress && merkleRootForSaving) {
+      setStatus('saving');
+      onAddAirdrop({
+        name, description: description || undefined,
+        action: link ? { text: "Link", url: link } : undefined,
+        type: airdropType, tokenAddress, tokenSymbol, tokenDecimals,
+        network: network, totalAmount: Number(totalAmount),
+        status: AirdropStatus.Draft,
+        startTime: new Date(startTime), endTime: new Date(endTime),
+        whitelist: airdropType === AirdropType.Whitelist ? whitelist : undefined,
+        contractAddress: newContractAddress,
+        merkleRoot: merkleRootForSaving,
+      });
+      setStatus('success');
     }
-  }, [isWaitingForMerkle, isMerkleSuccess]);
+  }, [isMerkleSuccess, newContractAddress, merkleRootForSaving]);
+
+  // Handle errors from either transaction
+  useEffect(() => {
+    const contractError = createAirdropError || setMerkleRootError;
+    if (contractError) {
+      setStatus('error');
+      setErrorMessage(contractError instanceof BaseError ? contractError.shortMessage : 'An unexpected error occurred.');
+    }
+  }, [createAirdropError, setMerkleRootError]);
 
 
+  // Step 1: Handle form submission and kick off the process
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || !address) {
@@ -125,13 +148,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     setErrorMessage('');
     resetCreate();
     resetSetMerkle();
-    setNewContractAddress(null); // Reset from previous runs
-
-    let finalMerkleRoot: Hex | null = null;
+    setNewContractAddress(null);
+    setMerkleRootForSaving(null);
 
     try {
       if (airdropType === AirdropType.Whitelist) {
-        // Step 1: Generate Merkle Root via backend
         setStatus('generating_proof');
         const merkleRes = await fetch('/api/airdrops', {
             method: 'POST',
@@ -140,26 +161,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         });
         if (!merkleRes.ok) throw new Error('Failed to generate Merkle proof.');
         const { merkleRoot } = await merkleRes.json();
-        finalMerkleRoot = merkleRoot;
+        setMerkleRootForSaving(merkleRoot); // Store merkle root to be used in the useEffect chain
 
-        // Step 2: Create airdrop contract via factory
         setStatus('creating_contract');
-        
-        const createPromise = new Promise<Hex>((resolve, reject) => {
-          // This will be resolved/rejected by the useEffect hook watching the transaction
-          const interval = setInterval(() => {
-            if(newContractAddress) {
-              clearInterval(interval);
-              resolve(newContractAddress);
-            }
-            if(creationReceipt && !newContractAddress) {
-              // This can happen if the transaction succeeds but the log isn't found
-              clearInterval(interval);
-              reject(new Error("AirdropCreated event not found in transaction receipt."));
-            }
-          }, 500); // Poll every 500ms
-        });
-        
         createAirdrop({
             address: AIRDROP_FACTORY_ADDRESS,
             abi: AirdropFactoryABI,
@@ -168,62 +172,14 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             chain: baseSepolia,
             account: address
         });
-        
-        const createdAddress = await createPromise;
-
-        // Step 3: Set Merkle Root on the new contract
-        setStatus('setting_merkle_root');
-        
-        setMerkleRoot({
-            address: createdAddress,
-            abi: AirdropABI,
-            functionName: 'setMerkleRoot',
-            args: [finalMerkleRoot!],
-            chain: baseSepolia,
-            account: address
-        });
-        
-        // This promise approach is complex. A simpler way is to just let the useEffect hook for merkle success handle the final step.
-        // For now, let's wait for `isMerkleSuccess` to become true.
-        await new Promise<void>((resolve) => {
-            const interval = setInterval(() => {
-                if (isMerkleSuccess) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 500);
-        });
-
-
+        // The rest of the flow is now handled by the useEffect hooks
       } else {
-        // TODO: Handle Quest airdrop creation if it involves contracts
         alert("Quest airdrops are not yet implemented with on-chain creation.");
         return;
       }
-      
-      // Step 4: Save airdrop to the database
-      setStatus('saving');
-      onAddAirdrop({
-        name, description: description || undefined,
-        action: link ? { text: "Link", url: link } : undefined,
-        type: airdropType, tokenAddress, tokenSymbol, tokenDecimals,
-        network: network, totalAmount: Number(totalAmount),
-        status: AirdropStatus.Draft,
-        startTime: new Date(startTime), endTime: new Date(endTime),
-        whitelist: airdropType === AirdropType.Whitelist ? whitelist : undefined,
-        contractAddress: newContractAddress!,
-        merkleRoot: finalMerkleRoot!,
-      });
-      setStatus('success');
-
     } catch (err: any) {
       setStatus('error');
-      // Use the `error` variables from the `useWriteContract` hooks to get contract error details.
-      const contractError = createAirdropError || setMerkleRootError;
-      const finalError = contractError instanceof BaseError ? contractError.shortMessage : (err.message || 'An unexpected error occurred.');
-      setErrorMessage(finalError);
-      // Reset states on failure
-      setNewContractAddress(null);
+      setErrorMessage(err.message || 'An unexpected error occurred during setup.');
     }
   };
   
