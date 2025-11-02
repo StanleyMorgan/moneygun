@@ -21,7 +21,9 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew }) => {
       return 1;
     }
     // For items with the same status, sort by creation date (newest first)
-    return b.createdAt.getTime() - a.createdAt.getTime();
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
   });
 
   return (

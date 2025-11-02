@@ -20,7 +20,7 @@ declare global {
         React.HTMLAttributes<HTMLElement>,
         HTMLElement
       > & {
-        label: string;
+        label?: string;
         size?: 'sm' | 'md';
         loadingLabel?: string;
       };
@@ -30,8 +30,8 @@ declare global {
         HTMLElement
       > & {
         disabled?: boolean;
-        // FIX: The 'balance' property is made required to match the expected type from the AppKit library.
-        balance: 'show' | 'hide';
+        // Fix: Made the 'balance' property optional to match its usage in the Header component.
+        balance?: 'show' | 'hide';
         size?: 'md' | 'sm';
         label?: string;
         loadingLabel?: string;

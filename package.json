@@ -16,6 +16,7 @@
     "@vercel/postgres": "^0.10.0",
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.6.0",
+    "papaparse": "^5.4.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "viem": "^2.17.4",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
+    "@types/papaparse": "^5.3.14",
     "@types/react-dom": "^18.3.0",
     "@vercel/node": "^3.2.0",
     "@vitejs/plugin-react": "^4.2.1",

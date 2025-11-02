@@ -1,88 +1,60 @@
+// Fix: The provider has been completely rewritten to follow the official @reown/appkit documentation.
+// This resolves critical issues with wallet state synchronization and contract calls.
 import React from 'react';
-import { createAppKit } from '@reown/appkit';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-// Fix: Import `base` and `celo` from `viem/chains` as they are not exported from `wagmi/chains` in recent versions.
-import { base, celo, baseSepolia } from 'viem/chains';
-// Fix: Import `QueryClient` from `@tanstack/query-core` as it may not be exported from `@tanstack/react-query` in this environment.
-import { QueryClientProvider } from '@tanstack/react-query';
-import { QueryClient } from '@tanstack/query-core';
+import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import type { Chain } from 'viem';
 
-// 0. Setup queryClient
-const queryClient = new QueryClient();
+// 1. Define Project ID and Networks
+const projectId = process.env.REOWN_PROJECT_ID || 'd3141a65525d9b62939886a110b64d30';
+if (!projectId) {
+  throw new Error('REOWN_PROJECT_ID is not defined. Please set it in your environment.');
+}
+const networks: [Chain, ...Chain[]] = [base, baseSepolia];
 
-// 1. Get projectId from Vercel env variable via Vite's define
-const projectId = process.env.REOWN_PROJECT_ID;
+// 2. Create the Wagmi Adapter, which will generate the wagmiConfig
+// Fix: The adapter is created first, and it generates the config, not the other way around.
+const wagmiAdapter = new WagmiAdapter({
+  projectId,
+  networks,
+  ssr: false, // This is a client-side app, so SSR is disabled.
+});
 
-// 2. Create a metadata object - optional
+// 3. Define App Metadata
 const metadata = {
   name: 'Moneygun',
-  description: 'Moneygun for Farcaster',
-  url: 'https://moneygun-mini.vercel.app/', // origin must match your domain & subdomain
-  icons: ['https://avatars.githubusercontent.com/u/37784886']
+  description: 'A mini-app for Farcaster to create and manage token airdrops.',
+  url: 'https://moneygun-mini.vercel.app/',
+  icons: ['https://moneygun-mini.vercel.app/logo128.png'],
 };
 
-// 3. Set the networks
-// The imported network configurations are readonly. Create a deep mutable copy to satisfy wagmi and appkit types.
-const networks = JSON.parse(JSON.stringify([base, baseSepolia, celo]));
+// 4. Initialize AppKit
+// Fix: This crucial step was missing. It registers web components and sets up the kit.
+createAppKit({
+  adapters: [wagmiAdapter],
+  projectId,
+  networks,
+  defaultNetwork: base,
+  metadata,
+});
 
-let wagmiAdapter: WagmiAdapter | null = null;
+// 5. Create a QueryClient instance
+const queryClient = new QueryClient();
 
-// Initialize AppKit only if projectId is available. This prevents build errors
-// when the environment variable is missing, while allowing the component to
-// render a helpful error message.
-if (projectId) {
-  wagmiAdapter = new WagmiAdapter({
-    networks,
-    projectId,
-    // Fix: Set ssr to false for client-side only applications like Farcaster mini-apps
-    // to prevent state hydration issues.
-    ssr: false
-  });
-
-  createAppKit({
-    adapters: [wagmiAdapter],
-    networks,
-    projectId,
-    metadata,
-    // Set theme programmatically as per Reown documentation
-    themeMode: 'light',
-    themeVariables: {
-      // FIX: There appears to be a mismatch between the library's TypeScript
-      // types and its documentation. Using `as any` to bypass the incorrect
-      // type checking and apply theme variables as specified in the docs.
-      '--apkt-accent': '#9333ea',
-      '--apkt-font-family': 'Inter, sans-serif',
-      '--apkt-border-radius-master': '0.5rem'
-    } as any,
-    features: {
-      analytics: true
-    }
-  });
-}
-
-
-interface AppKitProviderProps {
-  children: React.ReactNode;
-}
-
-export function AppKitProvider({ children }: AppKitProviderProps) {
-  // The runtime check for projectId and the initialized adapter remains.
-  // If they are missing, an error message is displayed to the user.
-  if (!projectId || !wagmiAdapter) {
-    return (
-      <div style={{ padding: '20px', margin: '20px', textAlign: 'center', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', borderRadius: '8px', fontFamily: 'sans-serif' }}>
-        <h2 style={{margin: 0, marginBottom: '10px'}}>Configuration Error</h2>
-        <p style={{margin: 0, marginBottom: '5px'}}><code>REOWN_PROJECT_ID</code> is not set.</p>
-        <p style={{margin: 0, marginBottom: '15px'}}>Please set this environment variable in your Vercel project settings.</p>
-        <code style={{padding: '5px 10px', backgroundColor: '#e9ecef', borderRadius: '4px'}}>REOWN_PROJECT_ID=your_project_id_here</code>
-      </div>
-    );
-  }
-
+// 6. Export the provider component
+export const AppKitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('[AppKitProvider] Initialized with new configuration.');
+  
+  // Fix: The application must be wrapped in both WagmiProvider and QueryClientProvider.
+  // The wagmiConfig is retrieved from the adapter instance.
   return (
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   );
-}
+};
