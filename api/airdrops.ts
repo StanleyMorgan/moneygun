@@ -7,6 +7,8 @@ import { MerkleTree } from 'merkletreejs';
 import { getAddress, parseUnits, keccak256 as viemKeccak256 } from 'viem';
 // Fix: Correct the import path and remove the unused 'Airdrop' type.
 import { WhitelistEntry } from '../types';
+// Fix: Import `Buffer` to resolve "Cannot find name 'Buffer'" errors in Node.js context.
+import { Buffer } from 'buffer';
 
 // Fix: Add a wrapper for viem's keccak256 to return a Buffer, which is expected by `merkletreejs`.
 const keccak256 = (data: Buffer): Buffer => Buffer.from(viemKeccak256(data, 'bytes'));
@@ -167,12 +169,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     INSERT INTO airdrops (
                         name, description, action, type, token_address, token_symbol, token_decimals,
                         network, total_amount, status, recipient_count, creator_address,
-                        start_time, end_time, contract_address, merkle_root
+                        start_time, end_time, contract_address, merkle_root, created_at
                     ) VALUES (
                         ${name}, ${description || null}, ${airdropAction ? JSON.stringify(airdropAction) : null}, ${type},
                         ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)},
                         ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()},
-                        ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}
+                        ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}, NOW()
                     ) RETURNING *;
                 `;
                 const createdAirdrop = airdropRows[0];
