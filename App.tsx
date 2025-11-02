@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import NewAirdropForm from './components/NewAirdropForm';
-import { Airdrop } from './types';
+import { Airdrop, WhitelistEntry } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 import { getAirdrops, createAirdrop } from './lib/api';
@@ -35,7 +35,7 @@ const App: React.FC = () => {
 
   }, []);
 
-  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'>) => {
+  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
     if (!address) {
       alert("Please connect your wallet to create an airdrop.");
       return;
@@ -50,7 +50,7 @@ const App: React.FC = () => {
       setView('dashboard');
     } catch (error) {
       console.error("Failed to create airdrop:", error);
-      // Optionally show an error message to the user
+      alert(`Failed to create airdrop: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [address]);
 

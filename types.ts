@@ -11,8 +11,13 @@ export enum AirdropStatus {
   Failed = 'Failed',
 }
 
+export interface WhitelistEntry {
+  address: string;
+  amount: string;
+}
+
 export interface Airdrop {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   action?: {
@@ -22,6 +27,7 @@ export interface Airdrop {
   type: AirdropType;
   tokenAddress: string;
   tokenSymbol?: string;
+  tokenDecimals?: number;
   network?: string;
   totalAmount: number;
   status: AirdropStatus;
@@ -30,6 +36,8 @@ export interface Airdrop {
   startTime?: Date;
   endTime?: Date;
   createdAt: Date;
+  contractAddress?: string;
+  merkleRoot?: string;
 }
 
 // Detailed configuration loaded from a JSON file

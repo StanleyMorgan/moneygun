@@ -1,5 +1,4 @@
-
-import { Airdrop } from '../types';
+import { Airdrop, WhitelistEntry } from '../types';
 
 // Helper to convert snake_case object keys to camelCase.
 // This is needed because the DB/API returns snake_case and the frontend uses camelCase.
@@ -43,9 +42,20 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
 };
 
 /**
+ * Defines the payload for creating a new airdrop.
+ * Now includes contractAddress and merkleRoot, as these are determined on the client-side.
+ */
+export interface AirdropCreationPayload extends Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'> {
+  whitelist?: WhitelistEntry[];
+  contractAddress?: string;
+  merkleRoot?: string;
+}
+
+
+/**
  * Creates a new airdrop by POSTing to the API.
  */
-export const createAirdrop = async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'>): Promise<Airdrop> => {
+export const createAirdrop = async (airdropData: AirdropCreationPayload): Promise<Airdrop> => {
   // Frontend uses camelCase, and our API handler is written to accept it directly.
   const response = await fetch('/api/airdrops', {
     method: 'POST',
@@ -57,7 +67,7 @@ export const createAirdrop = async (airdropData: Omit<Airdrop, 'id' | 'createdAt
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: 'Failed to create airdrop' }));
-    throw new Error(errorData.message);
+    throw new Error(errorData.message || 'Failed to create airdrop');
   }
   
   const data = await response.json();
