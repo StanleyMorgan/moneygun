@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -72,9 +70,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       complete: (results) => {
         if (results.errors.length > 0) {
             const firstError = results.errors[0];
-            // Added a check to ensure firstError is defined before accessing its properties to fix build error.
             if (firstError) {
-                setError(`CSV parsing error on line ${firstError.row + 1}: ${firstError.message}`);
+                // The `row` property on a PapaParse error can be undefined, so we must handle that case.
+                const lineInfo = firstError.row !== undefined ? `on line ${firstError.row + 1}` : 'in an unknown row';
+                setError(`CSV parsing error ${lineInfo}: ${firstError.message}`);
             } else {
                 setError('An unknown CSV parsing error occurred.');
             }
