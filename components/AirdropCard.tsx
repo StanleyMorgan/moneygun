@@ -562,7 +562,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
             {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
                  <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start gap-6">
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs w-full sm:w-auto">
+                    <div className="grid grid-cols-1 gap-y-2 text-xs w-full sm:w-auto">
                         <div>
                             <p className="text-slate-500">Start Time</p>
                             <p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p>
