@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus } from '../types';
 import { CogIcon } from './icons/CogIcon';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { airdropABI } from '../lib/abi';
+import { airdropABI, erc20ABI } from '../lib/abi';
 import { formatUnits, parseUnits, getAddress } from 'viem';
 
 export const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
@@ -59,23 +59,31 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [claimError, setClaimError] = useState('');
+    const [fundingStatus, setFundingStatus] = useState<'idle' | 'approving' | 'funding' | 'success' | 'error'>('idle');
+    const [fundingError, setFundingError] = useState('');
 
     console.log(`[AirdropCard Render - ${airdrop.name}] Account State:`, { address, isConnected });
 
-    const { data: writeHash, writeContract, error: writeError } = useWriteContract();
-    const { isSuccess: isClaimedSuccess } = useWaitForTransactionReceipt({ hash: writeHash });
+    const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
+    const { isSuccess: isClaimedSuccess } = useWaitForTransactionReceipt({ hash: claimHash });
+    
+    const { data: approveHash, writeContract: approve, isPending: isApproving, error: approveError } = useWriteContract();
+    const { data: fundHash, writeContract: fund, isPending: isFunding, error: fundError } = useWriteContract();
+    const { isSuccess: isApproveSuccess, isLoading: isWaitingForApproval } = useWaitForTransactionReceipt({ hash: approveHash });
+    const { isSuccess: isFundSuccess, isLoading: isWaitingForFund } = useWaitForTransactionReceipt({ hash: fundHash });
+
 
     const contractReadConfig = {
         address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
         abi: airdropABI,
     }
 
-    const { data: contractBalance } = useReadContract({
+    const { data: contractBalance, refetch: refetchBalance } = useReadContract({
         ...contractReadConfig,
         functionName: 'balance',
     });
 
-    const { data: claimedCount } = useReadContract({
+    const { data: claimedCount, refetch: refetchClaimedCount } = useReadContract({
         ...contractReadConfig,
         functionName: 'claimedCount',
     });
@@ -86,6 +94,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     // if the user is the actual owner AND is on a view where owner actions are expected (like the 'Manage' tab).
     const showOwnerControls = isActualOwner && viewAsOwner;
     const computedStatus = getComputedStatus(airdrop);
+
+    const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
+    const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
 
     const handleStatusToggle = async () => {
         if (!isActualOwner || !address) return;
@@ -122,6 +133,64 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             setIsUpdatingStatus(false);
         }
     };
+    
+    const handleLoad = async () => {
+        setFundingError('');
+        if (!isConnected || !address || !chain || !airdrop.contractAddress || !airdrop.tokenAddress) {
+            setFundingError('Wallet not connected or contract details missing.');
+            return;
+        }
+
+        try {
+            setFundingStatus('approving');
+            approve({
+                address: getAddress(airdrop.tokenAddress),
+                abi: erc20ABI,
+                functionName: 'approve',
+                args: [getAddress(airdrop.contractAddress), totalAmountInBaseUnits],
+                account: address,
+                chain: chain,
+            });
+        } catch (err: any) {
+            setFundingError(err.message);
+            setFundingStatus('error');
+        }
+    };
+
+    useEffect(() => {
+        if (isApproveSuccess) {
+            setFundingStatus('funding');
+            try {
+                fund({
+                    address: getAddress(airdrop.contractAddress!),
+                    abi: airdropABI,
+                    functionName: 'fund',
+                    args: [totalAmountInBaseUnits],
+                    account: address,
+                    chain: chain,
+                });
+            } catch (err: any) {
+                setFundingError(err.message);
+                setFundingStatus('error');
+            }
+        }
+    }, [isApproveSuccess]);
+
+    useEffect(() => {
+        if (isFundSuccess) {
+            setFundingStatus('success');
+            refetchBalance();
+            refetchClaimedCount();
+        }
+    }, [isFundSuccess, refetchBalance, refetchClaimedCount]);
+    
+    useEffect(() => {
+        const err = approveError || fundError;
+        if (err) {
+            setFundingError(err.message);
+            setFundingStatus('error');
+        }
+    }, [approveError, fundError]);
 
 
     const handleClaim = async () => {
@@ -151,7 +220,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             console.log('[Claim] Step 2: Calling "claim" on contract...');
             const amountInBaseUnits = parseUnits(amount, airdrop.tokenDecimals || 18);
             
-            writeContract({
+            claim({
                 address: getAddress(airdrop.contractAddress),
                 abi: airdropABI,
                 functionName: 'claim',
@@ -189,12 +258,23 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     }, [isClaimedSuccess, airdrop.id, address]);
 
     useEffect(() => {
-        if(writeError) {
-            console.error('[Claim] Contract write error:', writeError);
-            setClaimError(writeError.message);
+        if(claimErrorHook) {
+            console.error('[Claim] Contract write error:', claimErrorHook);
+            setClaimError(claimErrorHook.message);
             setClaimStatus('error');
         }
-    }, [writeError]);
+    }, [claimErrorHook]);
+
+    const fundingButtonText = () => {
+        if (isFunded) return 'Contract Funded';
+        if (fundingStatus === 'success') return 'Funded Successfully';
+        if (fundingStatus === 'error') return 'Retry Load';
+        if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
+        if (isWaitingForApproval) return 'Approving...';
+        if (isFunding || fundingStatus === 'funding') return 'Check Wallet to Fund...';
+        if (isWaitingForFund) return 'Funding...';
+        return 'Load';
+    };
 
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
@@ -233,10 +313,19 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
             {showOwnerControls && (
                 <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
-                    <div>
-                        <p className="font-medium text-slate-700">Owner Actions</p>
-                        <p className="text-slate-600 mt-1">To fund the airdrop, send {airdrop.tokenSymbol} tokens to this address on {airdrop.network}:</p>
-                        <code className="block bg-slate-200 text-slate-800 rounded px-2 py-1 mt-2 text-center break-all">{airdrop.contractAddress}</code>
+                    <p className="font-medium text-slate-700">Owner Actions</p>
+                    <div className="pt-2 border-t border-slate-200">
+                         <p className="text-slate-600 mb-2">Fund the contract with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.</p>
+                         <button
+                            onClick={handleLoad}
+                            disabled={isFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
+                            className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                isFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                            }`}
+                         >
+                            {fundingButtonText()}
+                         </button>
+                         {fundingError && <p className="text-red-600 mt-2">{fundingError}</p>}
                     </div>
                     <div className="pt-2 border-t border-slate-200">
                         <p className="text-slate-600">Change status. Active airdrops can be claimed by users during the scheduled time.</p>
@@ -249,7 +338,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                                 : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500'
                             }`}
                         >
-                            {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate Airdrop' : 'Set to Draft')}
+                            {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
                         </button>
                     </div>
                 </div>
