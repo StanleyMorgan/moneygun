@@ -56,6 +56,19 @@ const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
   );
 };
 
+const TypeBadge: React.FC<{ type: AirdropType }> = ({ type }) => {
+  const typeClasses: Record<AirdropType, string> = {
+    [AirdropType.Whitelist]: 'bg-slate-100 text-slate-600',
+    [AirdropType.Quest]: 'bg-indigo-100 text-indigo-600',
+  };
+  return (
+    <span className={`px-2 py-1 text-xs font-medium rounded-full ${typeClasses[type]}`}>
+      {type}
+    </span>
+  );
+};
+
+
 interface AirdropCardProps {
   airdrop: Airdrop;
   onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
@@ -551,64 +564,63 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-3 sm:grid-cols-5 gap-4 text-xs">
-                <div>
-                    <p className="text-slate-500">Type</p>
-                    <p className="font-medium text-slate-800">{airdrop.type}</p>
-                </div>
-                <div>
-                    <p className="text-slate-500">Network</p>
-                    <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
-                </div>
-                <div>
-                    <p className="text-slate-500">Total Amount</p>
-                    <p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p>
-                </div>
-                 <div>
-                    <p className="text-slate-500">Claimed</p>
-                    <p className="font-medium text-slate-800">{claimedCount?.toString() || '0'} / {airdrop.recipientCount}</p>
-                </div>
-                <div>
-                    <p className="text-slate-500">Contract Balance</p>
-                    <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
-                </div>
-            </div>
-
-            {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
-                 <div className="pt-4 border-t border-slate-100 flex justify-end items-center">
-                    <div className="w-full sm:w-80 flex-shrink-0">
-                        {showOwnerControls && ownerAction && (
-                            <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
-                                <p className="font-medium text-slate-700">Owner Actions</p>
-                                <div className="pt-2 border-t border-slate-200 flex flex-col">
-                                    <p className="text-slate-600 mb-2 flex-grow text-center min-h-[2.5em]">
-                                        {ownerAction.description}
-                                    </p>
-                                    <div className="w-full">
-                                        <button
-                                            onClick={ownerAction.buttonAction}
-                                            disabled={ownerAction.buttonDisabled}
-                                            className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                                ownerAction.buttonClassName
-                                            }`}
-                                        >
-                                            {ownerAction.buttonText}
-                                        </button>
-                                        {ownerAction.error && <p className="text-red-600 mt-2 text-center">{ownerAction.error}</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
-                            <div className="flex justify-end items-center gap-4 w-full">
-                                 {claimError && <p className="text-xs text-red-600">{claimError}</p>}
-                                 {renderClaimAction()}
-                            </div>
-                        )}
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                    <div>
+                        <p className="text-slate-500">Network</p>
+                        <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-500">Total Amount</p>
+                        <p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-500">Claimed</p>
+                        <p className="font-medium text-slate-800">{claimedCount?.toString() || '0'} / {airdrop.recipientCount}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-500">Contract Balance</p>
+                        <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
                     </div>
                 </div>
-            )}
+
+                <div className="flex justify-between items-center min-h-[26px]">
+                    <TypeBadge type={airdrop.type} />
+                     {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
+                        <div className="sm:w-80 flex-shrink-0">
+                            {showOwnerControls && ownerAction && (
+                                <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
+                                    <p className="font-medium text-slate-700">Owner Actions</p>
+                                    <div className="pt-2 border-t border-slate-200 flex flex-col">
+                                        <p className="text-slate-600 mb-2 flex-grow text-center min-h-[2.5em]">
+                                            {ownerAction.description}
+                                        </p>
+                                        <div className="w-full">
+                                            <button
+                                                onClick={ownerAction.buttonAction}
+                                                disabled={ownerAction.buttonDisabled}
+                                                className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                                    ownerAction.buttonClassName
+                                                }`}
+                                            >
+                                                {ownerAction.buttonText}
+                                            </button>
+                                            {ownerAction.error && <p className="text-red-600 mt-2 text-center">{ownerAction.error}</p>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
+                                <div className="flex justify-end items-center gap-4 w-full">
+                                    {claimError && <p className="text-xs text-red-600">{claimError}</p>}
+                                    {renderClaimAction()}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
