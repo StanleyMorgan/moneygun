@@ -1,3 +1,6 @@
+// Fix: Manually include global type definitions to ensure custom JSX elements are recognized.
+/// <reference path="../global.d.ts" />
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -196,7 +199,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 chain: chain,
             });
         } catch (err: any) {
-            setFundingError(err.message);
+            console.error('[Funding] Contract write error:', err);
+            // Only show user-friendly errors in the UI.
+            setFundingError('An unexpected error occurred during approval.');
             setFundingStatus('error');
         }
     };
@@ -214,11 +219,13 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     chain: chain,
                 });
             } catch (err: any) {
-                setFundingError(err.message);
+                console.error('[Funding] Contract write error:', err);
+                 // Only show user-friendly errors in the UI.
+                setFundingError('An unexpected error occurred during funding.');
                 setFundingStatus('error');
             }
         }
-    }, [isApproveSuccess]);
+    }, [isApproveSuccess, airdrop.contractAddress, airdropABI, totalAmountInBaseUnits, address, chain, fund]);
 
     useEffect(() => {
         if (isFundSuccess) {
@@ -465,36 +472,40 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <p className="font-medium text-slate-700">Owner Actions</p>
                     <div className="pt-2 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 md:gap-4">
                         {/* Fund Section */}
-                        <div>
-                            <p className="text-slate-600 mb-2">Fund the contract with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.</p>
-                            <button
-                                onClick={handleLoad}
-                                disabled={isFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
-                                className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                    isFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                                }`}
-                            >
-                                {fundingButtonText()}
-                            </button>
-                            {fundingError && <p className="text-red-600 mt-2">{fundingError}</p>}
+                        <div className="flex flex-col">
+                            <p className="text-slate-600 mb-2 flex-grow">Fund the contract with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.</p>
+                             <div>
+                                <button
+                                    onClick={handleLoad}
+                                    disabled={isFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
+                                    className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                        isFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                                    }`}
+                                >
+                                    {fundingButtonText()}
+                                </button>
+                                {fundingError && <p className="text-red-600 mt-2">{fundingError}</p>}
+                            </div>
                         </div>
                         {/* Status Toggle Section */}
-                        <div className="pt-4 border-t border-slate-200 md:pt-0 md:border-t-0 md:pl-4 md:border-l">
-                            <p className="text-slate-600 mb-2">Set airdrop to Active to allow user claims.</p>
-                            <button
-                                onClick={handleStatusToggle}
-                                disabled={isUpdatingStatus || isActivatingWithZeroBalance}
-                                className={`mt-2 w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                    airdrop.status === AirdropStatus.Draft
-                                    ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                                    : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500'
-                                }`}
-                            >
-                                {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
-                            </button>
-                            {isActivatingWithZeroBalance && (
-                                <p className="text-red-500 text-xs mt-2 text-center">Fund contract to activate.</p>
-                            )}
+                        <div className="pt-4 border-t border-slate-200 md:pt-0 md:border-t-0 md:pl-4 md:border-l flex flex-col">
+                           <p className="text-slate-600 mb-2 flex-grow">Set airdrop to Active to allow user claims.</p>
+                           <div>
+                                <button
+                                    onClick={handleStatusToggle}
+                                    disabled={isUpdatingStatus || isActivatingWithZeroBalance}
+                                    className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                        airdrop.status === AirdropStatus.Draft
+                                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                                        : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500'
+                                    }`}
+                                >
+                                    {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
+                                </button>
+                                {isActivatingWithZeroBalance && (
+                                    <p className="text-red-500 text-xs mt-2 text-center">Fund contract to activate.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
