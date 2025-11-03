@@ -378,17 +378,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         }
     }, [claimErrorHook]);
 
-    const fundingButtonText = () => {
-        if (isConsideredFunded) return 'Contract Funded';
-        if (fundingStatus === 'success') return 'Funded Successfully';
-        if (fundingStatus === 'error') return 'Retry Load';
-        if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
-        if (isWaitingForApproval) return 'Approving...';
-        if (isFunding || fundingStatus === 'funding') return 'Check Wallet to Fund...';
-        if (isWaitingForFund) return 'Funding...';
-        return 'Load';
-    };
-    
     const claimButtonText = () => {
         if (claimStatus === 'success') return 'Claimed!';
         if (claimStatus === 'waiting') return 'Processing...';
@@ -397,8 +386,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         if (claimStatus === 'error') return 'Try Again';
         return 'Claim';
     };
-
-    const isActivatingWithZeroBalance = airdrop.status === AirdropStatus.Draft && (typeof contractBalance !== 'bigint' || contractBalance === 0n);
 
     const renderClaimAction = () => {
         if (isCheckingClaimedStatus || eligibility.status === 'checking') {
@@ -446,8 +433,68 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         return null;
     }
 
-
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    
+    // Logic for the unified owner action button
+    let ownerAction;
+    if (showOwnerControls) {
+        if (airdrop.status === AirdropStatus.Active) {
+            // State: ACTIVE. Action: SET TO DRAFT.
+            ownerAction = {
+                description: "Pause the airdrop by setting it back to Draft. Claims will be disabled.",
+                buttonText: isUpdatingStatus ? 'Updating...' : 'Set to Draft',
+                buttonAction: handleStatusToggle,
+                buttonDisabled: isUpdatingStatus,
+                buttonClassName: 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500',
+                error: null,
+            };
+        } else if (isConsideredFunded) {
+            // State: DRAFT, FUNDED. Action: ACTIVATE.
+            ownerAction = {
+                description: "Airdrop is funded. Activate it to allow user claims.",
+                buttonText: isUpdatingStatus ? 'Updating...' : 'Activate',
+                buttonAction: handleStatusToggle,
+                buttonDisabled: isUpdatingStatus,
+                buttonClassName: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
+                error: null,
+            };
+        } else {
+            // State: DRAFT, NOT FUNDED. Action: LOAD.
+            const loadButtonText = () => {
+                if (fundingStatus === 'success') return 'Funded!';
+                if (fundingStatus === 'error') return 'Retry Load';
+                if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
+                if (isWaitingForApproval) return 'Approving...';
+                if (isFunding || fundingStatus === 'funding') return 'Check Wallet to Fund...';
+                if (isWaitingForFund) return 'Funding...';
+                return 'Load';
+            };
+    
+            ownerAction = {
+                description: (
+                    <>
+                        Fund the{' '}
+                        <a
+                            href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-purple-600 hover:text-purple-700 underline transition-colors"
+                            aria-label="View contract on block explorer"
+                        >
+                            contract
+                        </a>
+                        {' '}with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.
+                    </>
+                ),
+                buttonText: loadButtonText(),
+                buttonAction: handleLoad,
+                buttonDisabled: (fundingStatus !== 'idle' && fundingStatus !== 'error'),
+                buttonClassName: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+                error: fundingError,
+            };
+        }
+    }
+
 
     return (
         <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
@@ -496,54 +543,24 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             </div>
 
-            {showOwnerControls && (
+            {showOwnerControls && ownerAction && (
                 <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
                     <p className="font-medium text-slate-700">Owner Actions</p>
-                    <div className="pt-2 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 md:gap-4">
-                        {/* Fund Section */}
-                        <div className="flex flex-col">
-                            <p className="text-slate-600 mb-2 flex-grow">
-                                Fund the{' '}
-                                <a
-                                    href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium text-purple-600 hover:text-purple-700 underline transition-colors"
-                                    aria-label="View contract on block explorer"
-                                >
-                                    contract
-                                </a>
-                                {' '}with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.
-                            </p>
-                             <div>
-                                <button
-                                    onClick={handleLoad}
-                                    disabled={isConsideredFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
-                                    className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                        isConsideredFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                                    }`}
-                                >
-                                    {fundingButtonText()}
-                                </button>
-                                {fundingError && <p className="text-red-600 mt-2 text-center">{fundingError}</p>}
-                            </div>
-                        </div>
-                        {/* Status Toggle Section */}
-                        <div className="pt-4 border-t border-slate-200 md:pt-0 md:border-t-0 md:pl-4 md:border-l flex flex-col">
-                           <p className="text-slate-600 mb-2 flex-grow">Set airdrop to Active to allow user claims.</p>
-                           <div>
-                                <button
-                                    onClick={handleStatusToggle}
-                                    disabled={isUpdatingStatus || isActivatingWithZeroBalance}
-                                    className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                        airdrop.status === AirdropStatus.Draft
-                                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                                        : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500'
-                                    }`}
-                                >
-                                    {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
-                                </button>
-                            </div>
+                    <div className="pt-2 border-t border-slate-200 flex flex-col">
+                        <p className="text-slate-600 mb-2 flex-grow text-center min-h-[2.5em]">
+                            {ownerAction.description}
+                        </p>
+                        <div className="w-full md:w-1/2 mx-auto">
+                            <button
+                                onClick={ownerAction.buttonAction}
+                                disabled={ownerAction.buttonDisabled}
+                                className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                    ownerAction.buttonClassName
+                                }`}
+                            >
+                                {ownerAction.buttonText}
+                            </button>
+                            {ownerAction.error && <p className="text-red-600 mt-2 text-center">{ownerAction.error}</p>}
                         </div>
                     </div>
                 </div>
