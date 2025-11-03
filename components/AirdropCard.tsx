@@ -507,7 +507,19 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <div className="pt-2 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 md:gap-4">
                         {/* Fund Section */}
                         <div className="flex flex-col">
-                            <p className="text-slate-600 mb-2 flex-grow">Fund the contract with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.</p>
+                            <p className="text-slate-600 mb-2 flex-grow">
+                                Fund the{' '}
+                                <a
+                                    href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-purple-600 hover:text-purple-700 underline transition-colors"
+                                    aria-label="View contract on block explorer"
+                                >
+                                    contract
+                                </a>
+                                {' '}with {formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol} to enable claims.
+                            </p>
                              <div>
                                 <button
                                     onClick={handleLoad}
@@ -518,19 +530,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                                 >
                                     {fundingButtonText()}
                                 </button>
-                                {airdrop.contractAddress && (
-                                    <div className="text-center mt-2">
-                                        <a 
-                                            href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-slate-500 hover:text-purple-600 transition-colors underline"
-                                            aria-label="View contract on block explorer"
-                                        >
-                                            {truncateAddress(airdrop.contractAddress)}
-                                        </a>
-                                    </div>
-                                )}
                                 {fundingError && <p className="text-red-600 mt-2 text-center">{fundingError}</p>}
                             </div>
                         </div>
@@ -549,9 +548,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                                 >
                                     {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
                                 </button>
-                                {isActivatingWithZeroBalance && (
-                                    <p className="text-red-500 text-xs mt-2 text-center">Fund contract to activate.</p>
-                                )}
                             </div>
                         </div>
                     </div>
