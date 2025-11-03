@@ -226,8 +226,22 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     useEffect(() => {
         const err = approveError || fundError;
         if (err) {
-            setFundingError(err.message);
-            setFundingStatus('error');
+            console.error('[Funding] Contract write error:', err);
+
+            let isUserRejection = false;
+            if (err instanceof BaseError) {
+                isUserRejection = !!err.walk(e => e instanceof UserRejectedRequestError);
+            }
+
+            if (isUserRejection) {
+                // If the user rejected the transaction, reset the button to its initial state without an error.
+                setFundingStatus('idle');
+                setFundingError('');
+            } else {
+                // For all other errors, show a generic, user-friendly message.
+                setFundingError('Transaction failed. Please try again.');
+                setFundingStatus('error');
+            }
         }
     }, [approveError, fundError]);
 
