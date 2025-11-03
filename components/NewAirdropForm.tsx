@@ -15,14 +15,14 @@ const chainIdMap: Record<string, number> = {
   'base': base.id,
 };
 
-const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`; decimals: number }[]> = {
+const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`; decimals: number; iconUrl: string }[]> = {
   'base-sepolia': [
-    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
-    { symbol: 'USDC', address: '0x4b1a87123583b2E630152668a2c2fABb44b32F36', decimals: 18 },
+    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
+    { symbol: 'USDC', address: '0x4b1a87123583b2E630152668a2c2fABb44b32F36', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
   ],
   'base': [
-    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
-    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
+    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
+    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
   ],
 };
 
@@ -338,8 +338,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         </div>
         <div className="space-y-4">
             <h2 className="text-base font-semibold text-slate-700">Token & Network</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div>
+            <div className="space-y-4">
+                <div>
                     <label htmlFor="network" className="block text-xs font-medium text-slate-600 mb-1">Network</label>
                     <select id="network" value={network} onChange={handleNetworkChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
                         <option value="base-sepolia">Base Sepolia</option>
@@ -347,21 +347,31 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="token" className="block text-xs font-medium text-slate-600 mb-1">Token</label>
-                    <select 
-                        id="token" 
-                        value={selectedTokenAddress} 
-                        onChange={e => setSelectedTokenAddress(e.target.value)} 
-                        required 
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-                    >
-                        <option value="" disabled>Select a token</option>
-                        {currentTokens.map(token => (
-                            <option key={token.address} value={token.address}>
-                                {token.symbol}
-                            </option>
-                        ))}
-                    </select>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>
+                    {currentTokens.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                            {currentTokens.map(token => (
+                                <button
+                                    type="button"
+                                    key={token.address}
+                                    onClick={() => setSelectedTokenAddress(token.address)}
+                                    aria-pressed={selectedTokenAddress === token.address}
+                                    className={`flex items-center gap-4 p-3 border rounded-lg text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                        selectedTokenAddress === token.address
+                                            ? 'border-purple-600 bg-purple-50 shadow-sm'
+                                            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <img src={token.iconUrl} alt={`${token.symbol} logo`} className="w-8 h-8" />
+                                    <span className="font-semibold text-sm text-slate-800">{token.symbol}</span>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                       <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                           <p className="text-xs text-slate-500">Select a network to see available tokens.</p>
+                       </div>
+                    )}
                 </div>
             </div>
         </div>
