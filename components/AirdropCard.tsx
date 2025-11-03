@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Airdrop, AirdropStatus } from '../types';
+import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { CogIcon } from './icons/CogIcon';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropABI, erc20ABI } from '../lib/abi';
@@ -61,6 +61,8 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const [claimError, setClaimError] = useState('');
     const [fundingStatus, setFundingStatus] = useState<'idle' | 'approving' | 'funding' | 'success' | 'error'>('idle');
     const [fundingError, setFundingError] = useState('');
+    // FIX: Added 'error' to the status type to allow setting an error state. This resolves multiple downstream type errors.
+    const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
 
     console.log(`[AirdropCard Render - ${airdrop.name}] Account State:`, { address, isConnected });
 
@@ -87,6 +89,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         ...contractReadConfig,
         functionName: 'claimedCount',
     });
+    
+    // FIX: Removed the deprecated 'enabled' property. `useReadContract` automatically disables the query if `args` or `address` is undefined.
+    const { data: hasClaimed, isLoading: isCheckingClaimedStatus, refetch: refetchHasClaimed } = useReadContract({
+        ...contractReadConfig,
+        functionName: 'claimed',
+        args: address ? [address] : undefined,
+    });
+
 
     // isActualOwner checks if the connected wallet is the creator of this airdrop.
     const isActualOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
@@ -97,6 +107,30 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
     const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
+
+    useEffect(() => {
+        if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
+            const checkEligibility = async () => {
+                setEligibility({ status: 'checking', error: null });
+                try {
+                    const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
+                    if (response.ok) {
+                        setEligibility({ status: 'eligible', error: null });
+                    } else if (response.status === 404) {
+                        setEligibility({ status: 'ineligible', error: null });
+                    } else {
+                        const { message } = await response.json();
+                        throw new Error(message || 'Failed to check eligibility.');
+                    }
+                } catch (err: any) {
+                    setEligibility({ status: 'error', error: err.message });
+                }
+            };
+            checkEligibility();
+        } else if (airdrop.type !== AirdropType.Whitelist) {
+             setEligibility({ status: 'eligible', error: null });
+        }
+    }, [airdrop.id, airdrop.type, address, isConnected, computedStatus, showOwnerControls]);
 
     const handleStatusToggle = async () => {
         if (!isActualOwner || !address) return;
@@ -241,6 +275,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             if (isClaimedSuccess && address) {
                 console.log('[Claim] Step 2 Success: Transaction confirmed.');
                 setClaimStatus('success');
+                refetchHasClaimed();
                 try {
                     console.log('[Claim] Step 3: Updating claim status in DB...');
                     await fetch('/api/airdrops', {
@@ -255,7 +290,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             }
         };
         updateClaimInDb();
-    }, [isClaimedSuccess, airdrop.id, address]);
+    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed]);
 
     useEffect(() => {
         if(claimErrorHook) {
@@ -275,6 +310,71 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         if (isWaitingForFund) return 'Funding...';
         return 'Load';
     };
+    
+    const claimButtonText = () => {
+        if (claimStatus === 'success') return 'Claimed!';
+        if (claimStatus === 'waiting') return 'Processing...';
+        if (claimStatus === 'claiming') return 'Confirm in wallet...';
+        if (claimStatus === 'fetching') return 'Preparing...';
+        if (claimStatus === 'error') return 'Try Again';
+        return 'Claim';
+    };
+
+
+    const renderClaimSection = () => {
+        if (isCheckingClaimedStatus || eligibility.status === 'checking') {
+            return (
+                <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 animate-pulse">
+                    Checking status...
+                </div>
+            );
+        }
+        
+        if (hasClaimed) {
+             return (
+                <div className="pt-4 border-t border-slate-100">
+                    <button disabled className="w-full px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">
+                        Claimed
+                    </button>
+                </div>
+            );
+        }
+        
+        if (airdrop.type === AirdropType.Whitelist && eligibility.status === 'ineligible') {
+            return (
+                <div className="pt-4 border-t border-slate-100">
+                     <button disabled className="w-full px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">
+                        Not Eligible
+                    </button>
+                </div>
+            )
+        }
+        
+        if (eligibility.status === 'error') {
+            return (
+                 <div className="pt-4 border-t border-slate-100">
+                    <p className="text-xs text-red-600 text-center">{eligibility.error}</p>
+                </div>
+            )
+        }
+
+        if (eligibility.status === 'eligible') {
+            return (
+                <div className="pt-4 border-t border-slate-100">
+                    <button 
+                        onClick={handleClaim} 
+                        disabled={claimStatus !== 'idle' && claimStatus !== 'error'}
+                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
+                    >
+                        {claimButtonText()}
+                    </button>
+                    {claimError && <p className="text-xs text-red-600 text-center mt-2">{claimError}</p>}
+                </div>
+            )
+        }
+        
+        return null;
+    }
 
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
@@ -344,23 +444,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
             
-            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
-                <div className="pt-4 border-t border-slate-100">
-                    <button 
-                        onClick={handleClaim} 
-                        disabled={claimStatus !== 'idle' && claimStatus !== 'error'}
-                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
-                    >
-                        {claimStatus === 'idle' && 'Claim My Tokens'}
-                        {claimStatus === 'fetching' && 'Checking eligibility...'}
-                        {claimStatus === 'claiming' && 'Check wallet to confirm...'}
-                        {claimStatus === 'waiting' && 'Processing transaction...'}
-                        {claimStatus === 'success' && 'Tokens Claimed!'}
-                        {claimStatus === 'error' && 'Try Again'}
-                    </button>
-                    {claimError && <p className="text-xs text-red-600 text-center mt-2">{claimError}</p>}
-                </div>
-            )}
+            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && renderClaimSection()}
         </div>
     );
 };
