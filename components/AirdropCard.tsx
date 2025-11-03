@@ -57,6 +57,36 @@ interface AirdropCardProps {
   viewAsOwner: boolean;
 }
 
+const getBlockExplorerUrl = (network: string | undefined, address: string | undefined) => {
+    if (!network || !address) return '#';
+    switch (network) {
+        case 'base':
+            return `https://basescan.org/address/${address}`;
+        case 'base-sepolia':
+            return `https://sepolia.basescan.org/address/${address}`;
+        default:
+            return '#';
+    }
+};
+
+const truncateAddress = (address: string | undefined) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+const formatNetworkName = (network: string | undefined) => {
+    if (!network) return 'Unknown';
+    switch (network) {
+        case 'base':
+            return 'Base';
+        case 'base-sepolia':
+            return 'Base Sepolia';
+        default:
+            return network;
+    }
+};
+
+
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, viewAsOwner }) => {
     const { address, isConnected, chain } = useAccount();
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
@@ -448,10 +478,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
                 <div>
-                    <p className="text-slate-500">Recipients</p>
-                    <p className="font-medium text-slate-800">{formatNumber(airdrop.recipientCount)}</p>
+                    <p className="text-slate-500">Network</p>
+                    <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
                 </div>
                 <div>
                     <p className="text-slate-500">Total Amount</p>
@@ -460,6 +490,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 <div>
                     <p className="text-slate-500">Contract Balance</p>
                     <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">Recipients</p>
+                    <p className="font-medium text-slate-800">{formatNumber(airdrop.recipientCount)}</p>
                 </div>
                  <div>
                     <p className="text-slate-500">Claimed</p>
@@ -484,7 +518,20 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                                 >
                                     {fundingButtonText()}
                                 </button>
-                                {fundingError && <p className="text-red-600 mt-2">{fundingError}</p>}
+                                {airdrop.contractAddress && (
+                                    <div className="text-center mt-2">
+                                        <a 
+                                            href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-slate-500 hover:text-purple-600 transition-colors underline"
+                                            aria-label="View contract on block explorer"
+                                        >
+                                            {truncateAddress(airdrop.contractAddress)}
+                                        </a>
+                                    </div>
+                                )}
+                                {fundingError && <p className="text-red-600 mt-2 text-center">{fundingError}</p>}
                             </div>
                         </div>
                         {/* Status Toggle Section */}
