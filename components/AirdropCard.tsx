@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus } from '../types';
 import { CogIcon } from './icons/CogIcon';
@@ -53,9 +51,10 @@ const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
 interface AirdropCardProps {
   airdrop: Airdrop;
   onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
+  viewAsOwner: boolean;
 }
 
-const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) => {
+const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, viewAsOwner }) => {
     const { address, isConnected, chain } = useAccount();
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -81,11 +80,15 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) =
         functionName: 'claimedCount',
     });
 
-    const isOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
+    // isActualOwner checks if the connected wallet is the creator of this airdrop.
+    const isActualOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
+    // showOwnerControls determines if owner UI should be displayed. It's true only
+    // if the user is the actual owner AND is on a view where owner actions are expected (like the 'Manage' tab).
+    const showOwnerControls = isActualOwner && viewAsOwner;
     const computedStatus = getComputedStatus(airdrop);
 
     const handleStatusToggle = async () => {
-        if (!isOwner || !address) return;
+        if (!isActualOwner || !address) return;
 
         const newStatus = airdrop.status === AirdropStatus.Draft ? AirdropStatus.Active : AirdropStatus.Draft;
         
@@ -205,7 +208,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) =
                 </div>
                 <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4">
                     <StatusBadge status={computedStatus} />
-                    {isOwner && <button className="text-slate-400 hover:text-slate-600"><CogIcon className="w-5 h-5" /></button>}
+                    {showOwnerControls && <button className="text-slate-400 hover:text-slate-600"><CogIcon className="w-5 h-5" /></button>}
                 </div>
             </div>
 
@@ -228,7 +231,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) =
                 </div>
             </div>
 
-            {isOwner && (
+            {showOwnerControls && (
                 <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
                     <div>
                         <p className="font-medium text-slate-700">Owner Actions</p>
@@ -252,7 +255,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate }) =
                 </div>
             )}
             
-            {computedStatus === AirdropStatus.InProgress && !isOwner && (
+            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
                 <div className="pt-4 border-t border-slate-100">
                     <button 
                         onClick={handleClaim} 

@@ -129,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropU
           </h1>
           {airdropsToDisplay.length > 0 ? (
               airdropsToDisplay.map(airdrop => (
-                <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} />
+                <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} viewAsOwner={activeTab === 'manage'} />
               ))
           ) : (
             <EmptyState />
