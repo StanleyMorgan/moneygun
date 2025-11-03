@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
-import { CogIcon } from './icons/CogIcon';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropABI, erc20ABI } from '../lib/abi';
 // FIX: Import `BaseError` from `viem` to safely check the error type before calling `.walk()`.
@@ -416,7 +415,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
                 <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 flex-shrink-0">
                     <StatusBadge status={computedStatus} />
-                    {showOwnerControls && <button className="text-slate-400 hover:text-slate-600"><CogIcon className="w-5 h-5" /></button>}
                 </div>
             </div>
 
@@ -475,7 +473,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                         </div>
                         {/* Status Toggle Section */}
                         <div className="pt-4 border-t border-slate-200 md:pt-0 md:border-t-0 md:pl-4 md:border-l">
-                            <p className="text-slate-600 mb-2">Change status. Active airdrops can be claimed by users during the scheduled time.</p>
+                            <p className="text-slate-600 mb-2">Set airdrop to Active to allow user claims.</p>
                             <button
                                 onClick={handleStatusToggle}
                                 disabled={isUpdatingStatus}
