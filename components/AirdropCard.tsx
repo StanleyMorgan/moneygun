@@ -69,11 +69,6 @@ const getBlockExplorerUrl = (network: string | undefined, address: string | unde
     }
 };
 
-const truncateAddress = (address: string | undefined) => {
-    if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-};
-
 const formatNetworkName = (network: string | undefined) => {
     if (!network) return 'Unknown';
     switch (network) {
