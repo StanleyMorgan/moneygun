@@ -519,6 +519,16 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-slate-800 truncate">{airdrop.name}</h2>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
+                    <div className="mt-3 flex items-center gap-6 text-xs">
+                        <div>
+                            <p className="text-slate-500">Start Time</p>
+                            <p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-500">End Time</p>
+                            <p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p>
+                        </div>
+                    </div>
                 </div>
                 <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 flex-shrink-0">
                     <StatusBadge status={computedStatus} />
@@ -561,18 +571,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             </div>
 
             {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
-                 <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start gap-6">
-                    <div className="grid grid-cols-1 gap-y-2 text-xs w-full sm:w-auto">
-                        <div>
-                            <p className="text-slate-500">Start Time</p>
-                            <p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p>
-                        </div>
-                        <div>
-                            <p className="text-slate-500">End Time</p>
-                            <p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p>
-                        </div>
-                    </div>
-
+                 <div className="pt-4 border-t border-slate-100 flex justify-end items-center">
                     <div className="w-full sm:w-80 flex-shrink-0">
                         {showOwnerControls && ownerAction && (
                             <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
