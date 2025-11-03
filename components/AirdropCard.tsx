@@ -108,6 +108,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
     const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
 
+    const claimed = Number(claimedCount?.toString() || '0');
+    const total = airdrop.recipientCount;
+    const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
+
     useEffect(() => {
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
             const checkEligibility = async () => {
@@ -321,55 +325,46 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     };
 
 
-    const renderClaimSection = () => {
+    const renderClaimAction = () => {
         if (isCheckingClaimedStatus || eligibility.status === 'checking') {
             return (
-                <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 animate-pulse">
+                <p className="text-xs text-slate-500 animate-pulse">
                     Checking status...
-                </div>
+                </p>
             );
         }
         
         if (hasClaimed) {
              return (
-                <div className="pt-4 border-t border-slate-100">
-                    <button disabled className="w-full px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">
-                        Claimed
-                    </button>
-                </div>
+                <button disabled className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">
+                    Claimed
+                </button>
             );
         }
         
         if (airdrop.type === AirdropType.Whitelist && eligibility.status === 'ineligible') {
             return (
-                <div className="pt-4 border-t border-slate-100">
-                     <button disabled className="w-full px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">
-                        Not Eligible
-                    </button>
-                </div>
+                 <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">
+                    Not Eligible
+                </button>
             )
         }
         
         if (eligibility.status === 'error') {
             return (
-                 <div className="pt-4 border-t border-slate-100">
-                    <p className="text-xs text-red-600 text-center">{eligibility.error}</p>
-                </div>
+                 <p className="text-xs text-red-600 text-center">{eligibility.error}</p>
             )
         }
 
         if (eligibility.status === 'eligible') {
             return (
-                <div className="pt-4 border-t border-slate-100">
-                    <button 
-                        onClick={handleClaim} 
-                        disabled={claimStatus !== 'idle' && claimStatus !== 'error'}
-                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
-                    >
-                        {claimButtonText()}
-                    </button>
-                    {claimError && <p className="text-xs text-red-600 text-center mt-2">{claimError}</p>}
-                </div>
+                <button 
+                    onClick={handleClaim} 
+                    disabled={claimStatus !== 'idle' && claimStatus !== 'error'}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
+                >
+                    {claimButtonText()}
+                </button>
             )
         }
         
@@ -381,16 +376,32 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
     return (
         <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-slate-800 truncate">{airdrop.name}</h2>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
                 </div>
-                <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4">
+                <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 flex-shrink-0">
                     <StatusBadge status={computedStatus} />
                     {showOwnerControls && <button className="text-slate-400 hover:text-slate-600"><CogIcon className="w-5 h-5" /></button>}
                 </div>
             </div>
+
+            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && total > 0 && (
+                <div className="space-y-1">
+                     <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                            className="bg-purple-600 h-2 rounded-full transition-all duration-500" 
+                            style={{ width: `${progressPercentage}%` }}
+                            role="progressbar"
+                            aria-valuenow={progressPercentage}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`Airdrop progress: ${progressPercentage.toFixed(0)}% claimed`}
+                        ></div>
+                    </div>
+                </div>
+            )}
 
             <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
@@ -444,7 +455,12 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
             
-            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && renderClaimSection()}
+            {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
+                <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-4">
+                     {claimError && <p className="text-xs text-red-600">{claimError}</p>}
+                     {renderClaimAction()}
+                </div>
+            )}
         </div>
     );
 };
