@@ -141,6 +141,12 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
         const newStatus = airdrop.status === AirdropStatus.Draft ? AirdropStatus.Active : AirdropStatus.Draft;
         
+        // Prevent activation if the balance is zero
+        if (newStatus === AirdropStatus.Active && (typeof contractBalance !== 'bigint' || contractBalance === 0n)) {
+            alert("Cannot activate an airdrop with a zero balance. Please load the contract first.");
+            return;
+        }
+
         setIsUpdatingStatus(true);
         // Optimistic UI update
         onAirdropUpdate(airdrop.id, { status: newStatus });
@@ -356,6 +362,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         return 'Claim';
     };
 
+    const isActivatingWithZeroBalance = airdrop.status === AirdropStatus.Draft && (typeof contractBalance !== 'bigint' || contractBalance === 0n);
 
     const renderClaimAction = () => {
         if (isCheckingClaimedStatus || eligibility.status === 'checking') {
@@ -476,7 +483,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                             <p className="text-slate-600 mb-2">Set airdrop to Active to allow user claims.</p>
                             <button
                                 onClick={handleStatusToggle}
-                                disabled={isUpdatingStatus}
+                                disabled={isUpdatingStatus || isActivatingWithZeroBalance}
                                 className={`mt-2 w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
                                     airdrop.status === AirdropStatus.Draft
                                     ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
@@ -485,6 +492,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                             >
                                 {isUpdatingStatus ? 'Updating...' : (airdrop.status === AirdropStatus.Draft ? 'Activate' : 'Set to Draft')}
                             </button>
+                            {isActivatingWithZeroBalance && (
+                                <p className="text-red-500 text-xs mt-2 text-center">Fund contract to activate.</p>
+                            )}
                         </div>
                     </div>
                 </div>
