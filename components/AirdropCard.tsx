@@ -3,7 +3,8 @@ import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { CogIcon } from './icons/CogIcon';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropABI, erc20ABI } from '../lib/abi';
-import { formatUnits, parseUnits, getAddress } from 'viem';
+// FIX: Import `BaseError` from `viem` to safely check the error type before calling `.walk()`.
+import { formatUnits, parseUnits, getAddress, UserRejectedRequestError, BaseError } from 'viem';
 
 export const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
     if (airdrop.status === AirdropStatus.Failed) {
@@ -297,10 +298,28 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed]);
 
     useEffect(() => {
-        if(claimErrorHook) {
+        if (claimErrorHook) {
             console.error('[Claim] Contract write error:', claimErrorHook);
-            setClaimError(claimErrorHook.message);
-            setClaimStatus('error');
+            
+            let isUserRejection = false;
+            // The error from wagmi can be a viem BaseError or a generic Error.
+            // The .walk() method only exists on BaseError instances.
+            if (claimErrorHook instanceof BaseError) {
+                // FIX: The `walk` method returns the error instance if found (truthy), or null (falsy).
+                // This was causing a type error by assigning an Error object to a boolean.
+                // Coerce the result to a boolean for the `isUserRejection` flag.
+                isUserRejection = !!claimErrorHook.walk(e => e instanceof UserRejectedRequestError);
+            }
+
+            if (isUserRejection) {
+                // If the user rejected the transaction, just reset the button to its initial state.
+                setClaimStatus('idle');
+                setClaimError('');
+            } else {
+                // For all other errors, show a generic, user-friendly message.
+                setClaimError('Transaction failed. Please try again.');
+                setClaimStatus('error');
+            }
         }
     }, [claimErrorHook]);
 
