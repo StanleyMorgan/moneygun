@@ -551,7 +551,11 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-3 sm:grid-cols-5 gap-4 text-xs">
+                <div>
+                    <p className="text-slate-500">Type</p>
+                    <p className="font-medium text-slate-800">{airdrop.type}</p>
+                </div>
                 <div>
                     <p className="text-slate-500">Network</p>
                     <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
