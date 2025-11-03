@@ -349,20 +349,20 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>
                     {currentTokens.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                        <div className="flex flex-wrap gap-2 mt-2">
                             {currentTokens.map(token => (
                                 <button
                                     type="button"
                                     key={token.address}
                                     onClick={() => setSelectedTokenAddress(token.address)}
                                     aria-pressed={selectedTokenAddress === token.address}
-                                    className={`flex items-center gap-4 p-3 border rounded-lg text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
                                         selectedTokenAddress === token.address
-                                            ? 'border-purple-600 bg-purple-50 shadow-sm'
+                                            ? 'border-purple-600 bg-purple-50'
                                             : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
                                     }`}
                                 >
-                                    <img src={token.iconUrl} alt={`${token.symbol} logo`} className="w-8 h-8" />
+                                    <img src={token.iconUrl} alt={`${token.symbol} logo`} className="w-5 h-5" />
                                     <span className="font-semibold text-sm text-slate-800">{token.symbol}</span>
                                 </button>
                             ))}
