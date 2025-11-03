@@ -8,12 +8,17 @@ import { airdropABI, erc20ABI } from '../lib/abi';
 // FIX: Import `BaseError` from `viem` to safely check the error type before calling `.walk()`.
 import { formatUnits, parseUnits, getAddress, UserRejectedRequestError, BaseError } from 'viem';
 
-export const getComputedStatus = (airdrop: Airdrop): AirdropStatus => {
+export const getComputedStatus = (airdrop: Airdrop, claimedCount?: number, recipientCount?: number): AirdropStatus => {
     if (airdrop.status === AirdropStatus.Failed) {
         return AirdropStatus.Failed;
     }
     if (airdrop.status === AirdropStatus.Draft) {
         return AirdropStatus.Draft;
+    }
+
+    // If all tokens are claimed, the airdrop has ended, regardless of the end time.
+    if (claimedCount !== undefined && recipientCount !== undefined && recipientCount > 0 && claimedCount >= recipientCount) {
+        return AirdropStatus.Ended;
     }
 
     if (airdrop.status === AirdropStatus.Active) {
@@ -81,6 +86,17 @@ const formatNetworkName = (network: string | undefined) => {
     }
 };
 
+const formatDateTime = (date: Date | undefined) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+};
+
 
 const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, viewAsOwner }) => {
     const { address, isConnected, chain } = useAccount();
@@ -131,7 +147,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     // showOwnerControls determines if owner UI should be displayed. It's true only
     // if the user is the actual owner AND is on a view where owner actions are expected (like the 'Manage' tab).
     const showOwnerControls = isActualOwner && viewAsOwner;
-    const computedStatus = getComputedStatus(airdrop);
 
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
     const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
@@ -140,6 +155,8 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
     
+    const computedStatus = getComputedStatus(airdrop, claimed, total);
+
     // A contract is considered funded if it currently holds the total amount,
     // or if claims have already started (implying it was funded before).
     const isConsideredFunded = isFunded || claimed > 0;
@@ -524,7 +541,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
                 <div>
                     <p className="text-slate-500">Network</p>
                     <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
@@ -533,13 +550,21 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <p className="text-slate-500">Total Amount</p>
                     <p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p>
                 </div>
-                <div>
-                    <p className="text-slate-500">Contract Balance</p>
-                    <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
-                </div>
                  <div>
                     <p className="text-slate-500">Claimed</p>
                     <p className="font-medium text-slate-800">{claimedCount?.toString() || '0'} / {airdrop.recipientCount}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">Start Time</p>
+                    <p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">End Time</p>
+                    <p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">Contract Balance</p>
+                    <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
                 </div>
             </div>
 
