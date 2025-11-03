@@ -139,6 +139,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const claimed = Number(claimedCount?.toString() || '0');
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
+    
+    // A contract is considered funded if it currently holds the total amount,
+    // or if claims have already started (implying it was funded before).
+    const isConsideredFunded = isFunded || claimed > 0;
 
     useEffect(() => {
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
@@ -375,7 +379,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     }, [claimErrorHook]);
 
     const fundingButtonText = () => {
-        if (isFunded) return 'Contract Funded';
+        if (isConsideredFunded) return 'Contract Funded';
         if (fundingStatus === 'success') return 'Funded Successfully';
         if (fundingStatus === 'error') return 'Retry Load';
         if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
@@ -473,7 +477,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
             )}
 
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
                     <p className="text-slate-500">Network</p>
                     <p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p>
@@ -485,10 +489,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 <div>
                     <p className="text-slate-500">Contract Balance</p>
                     <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
-                </div>
-                <div>
-                    <p className="text-slate-500">Recipients</p>
-                    <p className="font-medium text-slate-800">{formatNumber(airdrop.recipientCount)}</p>
                 </div>
                  <div>
                     <p className="text-slate-500">Claimed</p>
@@ -518,9 +518,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                              <div>
                                 <button
                                     onClick={handleLoad}
-                                    disabled={isFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
+                                    disabled={isConsideredFunded || fundingStatus !== 'idle' && fundingStatus !== 'error'}
                                     className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                        isFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                                        isConsideredFunded ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
                                     }`}
                                 >
                                     {fundingButtonText()}
