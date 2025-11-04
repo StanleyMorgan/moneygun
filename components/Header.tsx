@@ -19,9 +19,9 @@ const Header: React.FC = () => {
           </div>
           <div className="flex items-center">
             {isConnected ? (
-                <appkit-button balance="show" />
+                <appkit-button balance="hide" />
             ) : (
-                <appkit-connect-button label="Connect Wallet" />
+                <appkit-connect-button label="Connect" />
             )}
           </div>
         </div>
