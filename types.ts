@@ -41,6 +41,7 @@ export interface Airdrop {
   createdAt: Date;
   contractAddress?: string;
   merkleRoot?: string;
+  maxReward?: number;
 }
 
 // Detailed configuration loaded from a JSON file

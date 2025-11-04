@@ -575,10 +575,22 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <p className="text-slate-500">Claimed</p>
                     <p className="font-medium text-slate-800">{claimedCount?.toString() || '0'} / {airdrop.recipientCount}</p>
                 </div>
-                <div>
-                    <p className="text-slate-500">Contract Balance</p>
-                    <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
-                </div>
+                {viewAsOwner ? (
+                    <div>
+                        <p className="text-slate-500">Contract Balance</p>
+                        <p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p>
+                    </div>
+                ) : airdrop.maxReward && airdrop.maxReward > 0 ? (
+                    <div>
+                        <p className="text-slate-500">Up To</p>
+                        <p className="font-medium text-slate-800">{formatNumber(airdrop.maxReward)} {airdrop.tokenSymbol}</p>
+                    </div>
+                ) : (
+                  <div>
+                    <p className="text-slate-500">Recipients</p>
+                    <p className="font-medium text-slate-800">{formatNumber(airdrop.recipientCount)}</p>
+                  </div>
+                )}
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex justify-between items-center min-h-[26px]">

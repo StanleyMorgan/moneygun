@@ -65,7 +65,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else {
             // --- Get All Airdrops ---
             try {
-                const { rows } = await sql`SELECT * FROM airdrops ORDER BY created_at DESC;`;
+                // This query now joins with whitelist_entries to get the max reward for each airdrop.
+                const { rows } = await sql`
+                    SELECT
+                        a.*,
+                        MAX(we.amount) as max_reward
+                    FROM
+                        airdrops a
+                    LEFT JOIN
+                        whitelist_entries we ON a.id = we.airdrop_id
+                    GROUP BY
+                        a.id
+                    ORDER BY
+                        a.created_at DESC;
+                `;
                 return res.status(200).json(rows);
             } catch (error) {
                 console.error('Fetch airdrops error:', error);

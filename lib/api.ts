@@ -35,6 +35,7 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
   return camelCaseData.map((item: any) => ({
     ...item,
     totalAmount: Number(item.totalAmount), // total_amount is NUMERIC in DB
+    maxReward: item.maxReward ? Number(item.maxReward) : undefined,
     createdAt: new Date(item.createdAt),
     startTime: item.startTime ? new Date(item.startTime) : undefined,
     endTime: item.endTime ? new Date(item.endTime) : undefined,
@@ -45,7 +46,7 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
  * Defines the payload for creating a new airdrop.
  * Now includes contractAddress and merkleRoot, as these are determined on the client-side.
  */
-export interface AirdropCreationPayload extends Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount'> {
+export interface AirdropCreationPayload extends Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'maxReward'> {
   whitelist?: WhitelistEntry[];
   contractAddress?: string;
   merkleRoot?: string;
@@ -79,6 +80,7 @@ export const createAirdrop = async (airdropData: AirdropCreationPayload): Promis
   return {
     ...camelCaseData,
     totalAmount: Number(camelCaseData.totalAmount),
+    maxReward: camelCaseData.maxReward ? Number(camelCaseData.maxReward) : undefined,
     createdAt: new Date(camelCaseData.createdAt),
     startTime: camelCaseData.startTime ? new Date(camelCaseData.startTime) : undefined,
     endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,
