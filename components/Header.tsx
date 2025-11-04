@@ -14,7 +14,7 @@ const Header: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="Moneygun Logo" className="w-8 h-8" />
+            <img src="https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/favicon.svg" alt="Moneygun Logo" className="w-8 h-8" />
             <span className="text-lg font-bold text-slate-800">Moneygun</span>
           </div>
           <div className="flex items-center">
