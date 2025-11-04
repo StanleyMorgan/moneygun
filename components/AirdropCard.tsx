@@ -543,9 +543,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                         </div>
                     </div>
                 </div>
-                <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-4 flex-shrink-0">
-                    <StatusBadge status={computedStatus} />
-                </div>
             </div>
 
             {computedStatus === AirdropStatus.InProgress && total > 0 && (
@@ -584,7 +581,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex justify-between items-center min-h-[26px]">
-                <TypeBadge type={airdrop.type} />
+                <div className="flex items-center gap-2">
+                    <TypeBadge type={airdrop.type} />
+                    <StatusBadge status={computedStatus} />
+                </div>
                     {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
                     <div className="sm:w-80 flex-shrink-0">
                         {showOwnerControls && ownerAction && (
