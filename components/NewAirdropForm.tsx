@@ -172,6 +172,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         setError('Please fill all required fields.');
         return;
     }
+    if (name.length > 30) {
+        setError('Name cannot exceed 30 characters.');
+        return;
+    }
     if (description.length > 140) {
         setError('Description cannot exceed 140 characters.');
         return;
@@ -328,7 +332,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             <h2 className="text-base font-semibold text-slate-700">Airdrop Details</h2>
             <div>
                 <label htmlFor="name" className="block text-xs font-medium text-slate-600 mb-1">Name</label>
-                <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required maxLength={30} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                <p className="text-right text-xs text-slate-500 mt-1">{name.length} / 30</p>
             </div>
             <div>
                 <label htmlFor="description" className="block text-xs font-medium text-slate-600 mb-1">Description</label>
