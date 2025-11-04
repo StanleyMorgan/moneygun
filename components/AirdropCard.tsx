@@ -7,6 +7,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { airdropABI, erc20ABI } from '../lib/abi';
 // FIX: Import `BaseError` from `viem` to safely check the error type before calling `.walk()`.
 import { formatUnits, parseUnits, getAddress, UserRejectedRequestError, BaseError } from 'viem';
+import { InfoIcon } from './icons/InfoIcon';
 
 export const getComputedStatus = (airdrop: Airdrop, claimedCount?: number, recipientCount?: number): AirdropStatus => {
     if (airdrop.status === AirdropStatus.Failed) {
@@ -585,39 +586,36 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <TypeBadge type={airdrop.type} />
                     <StatusBadge status={computedStatus} />
                 </div>
-                    {((computedStatus === AirdropStatus.InProgress && !showOwnerControls) || showOwnerControls) && (
-                    <div className="sm:w-80 flex-shrink-0">
-                        {showOwnerControls && ownerAction && (
-                            <div className="space-y-3 text-xs bg-slate-50 p-3 rounded-md">
-                                <p className="font-medium text-slate-700">Owner Actions</p>
-                                <div className="pt-2 border-t border-slate-200 flex flex-col">
-                                    <p className="text-slate-600 mb-2 flex-grow text-center min-h-[2.5em]">
+                <div className="flex-shrink-0 flex justify-end">
+                    {showOwnerControls && ownerAction ? (
+                        <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-2">
+                                <div className="relative group flex items-center">
+                                    <InfoIcon className="w-4 h-4 text-slate-400 hover:text-slate-600 cursor-help" />
+                                    <div className="absolute bottom-full right-1/2 translate-x-1/2 mb-2 w-64 p-3 text-xs leading-relaxed text-white bg-slate-800 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 text-center">
                                         {ownerAction.description}
-                                    </p>
-                                    <div className="w-full">
-                                        <button
-                                            onClick={ownerAction.buttonAction}
-                                            disabled={ownerAction.buttonDisabled}
-                                            className={`w-full px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
-                                                ownerAction.buttonClassName
-                                            }`}
-                                        >
-                                            {ownerAction.buttonText}
-                                        </button>
-                                        {ownerAction.error && <p className="text-red-600 mt-2 text-center">{ownerAction.error}</p>}
+                                        <svg className="absolute text-slate-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xmlSpace="preserve"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={ownerAction.buttonAction}
+                                    disabled={ownerAction.buttonDisabled}
+                                    className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${
+                                        ownerAction.buttonClassName
+                                    }`}
+                                >
+                                    {ownerAction.buttonText}
+                                </button>
                             </div>
-                        )}
-                        
-                        {computedStatus === AirdropStatus.InProgress && !showOwnerControls && (
-                            <div className="flex justify-end items-center gap-4 w-full">
-                                {claimError && <p className="text-xs text-red-600">{claimError}</p>}
-                                {renderClaimAction()}
-                            </div>
-                        )}
-                    </div>
-                )}
+                            {ownerAction.error && <p className="text-red-600 text-xs mt-2 text-right">{ownerAction.error}</p>}
+                        </div>
+                    ) : computedStatus === AirdropStatus.InProgress && !showOwnerControls ? (
+                        <div className="flex justify-end items-center gap-4">
+                            {claimError && <p className="text-xs text-red-600">{claimError}</p>}
+                            {renderClaimAction()}
+                        </div>
+                    ) : null}
+                </div>
             </div>
         </div>
     );

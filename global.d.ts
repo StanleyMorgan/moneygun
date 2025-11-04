@@ -3,9 +3,7 @@
 // FIX: The file is now a global script, not a module, to ensure augmentations are applied globally.
 // This resolves issues where TypeScript wouldn't recognize custom elements like `appkit-button`.
 
-// Define ChainNamespace as a global type.
-type ChainNamespace = 'eip155' | 'solana';
-
+// FIX: Removed unused `ChainNamespace` type that was causing a compile error.
 // Augment the NodeJS namespace to include environment variables.
 namespace NodeJS {
   interface ProcessEnv {
