@@ -15,8 +15,8 @@ const statusOrder: Record<AirdropStatus, number> = {
   [AirdropStatus.InProgress]: 1,
   [AirdropStatus.Planned]: 2,
   [AirdropStatus.Draft]: 3,
-  [AirdropStatus.Ended]: 4,
-  [AirdropStatus.Failed]: 5,
+  [AirdropStatus.Failed]: 4,
+  [AirdropStatus.Ended]: 5,
   [AirdropStatus.Active]: 6, // Fallback
 };
 

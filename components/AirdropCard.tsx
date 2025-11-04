@@ -45,8 +45,8 @@ const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
   const statusClasses: Record<AirdropStatus, string> = {
     [AirdropStatus.Draft]: 'bg-slate-100 text-slate-600',
     [AirdropStatus.Planned]: 'bg-yellow-100 text-yellow-600',
-    [AirdropStatus.InProgress]: 'bg-blue-100 text-blue-600 animate-pulse',
-    [AirdropStatus.Ended]: 'bg-green-100 text-green-600',
+    [AirdropStatus.InProgress]: 'bg-green-100 text-green-600 animate-pulse',
+    [AirdropStatus.Ended]: 'bg-red-100 text-red-600',
     [AirdropStatus.Failed]: 'bg-red-100 text-red-600',
     [AirdropStatus.Active]: 'bg-purple-100 text-purple-600', // Fallback
   };
