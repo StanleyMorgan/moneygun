@@ -20,6 +20,7 @@ export interface WhitelistEntry {
 export interface Airdrop {
   id: number;
   name: string;
+  image?: string;
   description?: string;
   action?: {
     text: string;

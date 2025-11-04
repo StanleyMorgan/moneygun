@@ -1,3 +1,6 @@
+// Fix: Manually include global type definitions to ensure custom JSX elements are recognized.
+/// <reference path="../global.d.ts" />
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -49,6 +52,7 @@ const statusMessages: Record<FormStatus, string> = {
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [image, setImage] = useState('');
   const [network, setNetwork] = useState('base-sepolia');
   const [selectedTokenAddress, setSelectedTokenAddress] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -281,6 +285,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 await onAddAirdrop({
                     name,
                     description,
+                    image,
                     type: AirdropType.Whitelist,
                     tokenAddress: selectedToken.address,
                     tokenSymbol: selectedToken.symbol,
@@ -339,6 +344,31 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 <label htmlFor="description" className="block text-xs font-medium text-slate-600 mb-1">Description</label>
                 <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} required maxLength={140} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
                 <p className="text-right text-xs text-slate-500 mt-1">{description.length} / 140</p>
+            </div>
+            <div>
+              <label htmlFor="image" className="block text-xs font-medium text-slate-600 mb-1">Airdrop Icon URL (Optional)</label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="url"
+                  id="image"
+                  value={image}
+                  onChange={e => setImage(e.target.value)}
+                  placeholder="https://.../icon.svg"
+                  className="flex-grow px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <img
+                  src={image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
+                  alt="Airdrop icon preview"
+                  className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg') {
+                      target.src = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG or image file. If blank, a default icon is used.</p>
             </div>
         </div>
         <div className="space-y-4">

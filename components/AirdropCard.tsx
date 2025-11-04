@@ -534,7 +534,12 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
     return (
         <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4">
+                <img
+                    src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
+                    alt={`${airdrop.name} token icon`}
+                    className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0"
+                />
                 <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-slate-800 truncate">{airdrop.name}</h2>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>

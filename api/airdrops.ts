@@ -177,7 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const client = await db.connect();
             try {
                 const {
-                    name, description, action: airdropAction, type, tokenAddress,
+                    name, description, image, action: airdropAction, type, tokenAddress,
                     tokenSymbol, tokenDecimals, network, totalAmount, status,
                     creatorAddress, startTime, endTime, whitelist,
                     contractAddress, merkleRoot
@@ -201,11 +201,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 
                 const { rows: airdropRows } = await client.sql`
                     INSERT INTO airdrops (
-                        name, description, action, type, token_address, token_symbol, token_decimals,
+                        name, description, image, action, type, token_address, token_symbol, token_decimals,
                         network, total_amount, status, recipient_count, creator_address,
                         start_time, end_time, contract_address, merkle_root, created_at
                     ) VALUES (
-                        ${name}, ${description || null}, ${airdropAction ? JSON.stringify(airdropAction) : null}, ${type},
+                        ${name}, ${description || null}, ${image || ''}, ${airdropAction ? JSON.stringify(airdropAction) : null}, ${type},
                         ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)},
                         ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()},
                         ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}, NOW()
