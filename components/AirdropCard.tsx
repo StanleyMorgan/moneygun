@@ -143,7 +143,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         functionName: 'balance',
     });
 
-    const { data: claimedCount, refetch: refetchClaimedCount } = useReadContract({
+    const { data: contractClaimedCount, refetch: refetchClaimedCount } = useReadContract({
         ...contractReadConfig,
         functionName: 'claimedCount',
     });
@@ -165,7 +165,12 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
     const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
 
-    const claimed = Number(claimedCount?.toString() || '0');
+    // Use live contract data if available, otherwise fall back to data from DB.
+    // This provides a good initial value and prevents flicker.
+    const claimed = contractClaimedCount !== undefined 
+        ? Number(contractClaimedCount) 
+        : airdrop.claimedCount ?? 0;
+
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
     
@@ -573,7 +578,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 </div>
                 <div>
                     <p className="text-slate-500">Claimed</p>
-                    <p className="font-medium text-slate-800">{claimedCount?.toString() || '0'} / {airdrop.recipientCount}</p>
+                    <p className="font-medium text-slate-800">{claimed} / {airdrop.recipientCount}</p>
                 </div>
                 {viewAsOwner ? (
                     <div>

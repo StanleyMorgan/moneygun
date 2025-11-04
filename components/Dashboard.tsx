@@ -22,8 +22,8 @@ const statusOrder: Record<AirdropStatus, number> = {
 
 const sortAirdrops = (airdrops: Airdrop[]) => {
   return [...airdrops].sort((a, b) => {
-    const statusA = getComputedStatus(a);
-    const statusB = getComputedStatus(b);
+    const statusA = getComputedStatus(a, a.claimedCount, a.recipientCount);
+    const statusB = getComputedStatus(b, b.claimedCount, b.recipientCount);
 
     const orderA = statusOrder[statusA] ?? 99;
     const orderB = statusOrder[statusB] ?? 99;

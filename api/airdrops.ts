@@ -65,11 +65,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else {
             // --- Get All Airdrops ---
             try {
-                // This query now joins with whitelist_entries to get the max reward for each airdrop.
+                // This query now joins with whitelist_entries to get the max reward and claimed count for each airdrop.
                 const { rows } = await sql`
                     SELECT
                         a.*,
-                        MAX(we.amount) as max_reward
+                        MAX(we.amount) as max_reward,
+                        COUNT(we.claimed) FILTER (WHERE we.claimed = true) as claimed_count
                     FROM
                         airdrops a
                     LEFT JOIN

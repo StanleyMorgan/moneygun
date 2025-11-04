@@ -1,5 +1,3 @@
-
-
 export enum AirdropType {
   Whitelist = 'Whitelist',
   Quest = 'Quest',
@@ -42,6 +40,7 @@ export interface Airdrop {
   contractAddress?: string;
   merkleRoot?: string;
   maxReward?: number;
+  claimedCount?: number;
 }
 
 // Detailed configuration loaded from a JSON file
