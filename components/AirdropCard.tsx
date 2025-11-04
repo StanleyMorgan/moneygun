@@ -533,12 +533,12 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-slate-800 truncate">{airdrop.name}</h2>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
-                    <div className="mt-3 flex items-center gap-6 text-xs">
-                        <div>
+                    <div className="mt-3 flex items-start text-xs">
+                        <div className="w-1/2">
                             <p className="text-slate-500">Start Time</p>
                             <p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p>
                         </div>
-                        <div>
+                        <div className="w-1/2">
                             <p className="text-slate-500">End Time</p>
                             <p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p>
                         </div>
