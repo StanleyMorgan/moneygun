@@ -19,7 +19,7 @@ const Header: React.FC = () => {
           </div>
           <div className="flex items-center">
             {isConnected ? (
-                <appkit-button balance="hide" />
+                <appkit-button balance="hide" label="" />
             ) : (
                 <appkit-connect-button label="Connect" />
             )}
