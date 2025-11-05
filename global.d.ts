@@ -33,7 +33,8 @@ declare global {
         // FIX: The 'balance' property is required by the base AppKit element type, so it cannot be optional.
         balance: 'show' | 'hide';
         size?: 'md' | 'sm';
-        label?: string;
+        // FIX: The `label` property is required by the base AppKit element type. Making it non-optional resolves the type incompatibility.
+        label: string;
         loadingLabel?: string;
         namespace?: 'eip155' | 'solana' | 'bip122';
       };

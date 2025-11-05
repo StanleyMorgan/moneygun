@@ -179,6 +179,8 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     // A contract is considered funded if it currently holds the total amount,
     // or if claims have already started (implying it was funded before).
     const isConsideredFunded = isFunded || claimed > 0;
+    
+    const anyError = claimError || fundingError || (eligibility.status === 'error' ? eligibility.error : null);
 
     useEffect(() => {
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
@@ -448,13 +450,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             )
         }
         
-        if (eligibility.status === 'error') {
-            return (
-                 <p className="text-xs text-red-600 text-center">{eligibility.error}</p>
-            )
-        }
-
-        if (eligibility.status === 'eligible') {
+        if (eligibility.status === 'eligible' || eligibility.status === 'error') {
             return (
                 <button 
                     onClick={handleClaim} 
@@ -482,7 +478,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 buttonAction: handleStatusToggle,
                 buttonDisabled: isUpdatingStatus,
                 buttonClassName: 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500',
-                error: null,
             };
         } else if (isConsideredFunded) {
             // State: DRAFT, FUNDED. Action: ACTIVATE.
@@ -492,7 +487,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 buttonAction: handleStatusToggle,
                 buttonDisabled: isUpdatingStatus,
                 buttonClassName: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
-                error: null,
             };
         } else {
             // State: DRAFT, NOT FUNDED. Action: LOAD.
@@ -526,7 +520,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 buttonAction: handleLoad,
                 buttonDisabled: (fundingStatus !== 'idle' && fundingStatus !== 'error'),
                 buttonClassName: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
-                error: fundingError,
             };
         }
     }
@@ -604,14 +597,14 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                 )}
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-between items-center min-h-[26px]">
-                <div className="flex items-center gap-2">
-                    <TypeBadge type={airdrop.type} />
-                    <StatusBadge status={computedStatus} />
-                </div>
-                <div className="flex-shrink-0 flex justify-end">
-                    {showOwnerControls && ownerAction ? (
-                        <div className="flex flex-col items-end">
+            <div className="pt-4 border-t border-slate-100">
+                <div className="flex justify-between items-center min-h-[26px]">
+                    <div className="flex items-center gap-2">
+                        <TypeBadge type={airdrop.type} />
+                        <StatusBadge status={computedStatus} />
+                    </div>
+                    <div className="flex-shrink-0 flex justify-end">
+                        {showOwnerControls && ownerAction ? (
                             <div className="flex items-center gap-2">
                                 <div className="relative group flex items-center">
                                     <InfoIcon className="w-4 h-4 text-slate-400 hover:text-slate-600 cursor-help" />
@@ -630,15 +623,16 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                                     {ownerAction.buttonText}
                                 </button>
                             </div>
-                            {ownerAction.error && <p className="text-red-600 text-xs mt-2 text-right">{ownerAction.error}</p>}
-                        </div>
-                    ) : computedStatus === AirdropStatus.InProgress && !showOwnerControls ? (
-                        <div className="flex justify-end items-center gap-4">
-                            {claimError && <p className="text-xs text-red-600">{claimError}</p>}
-                            {renderClaimAction()}
-                        </div>
-                    ) : null}
+                        ) : computedStatus === AirdropStatus.InProgress && !showOwnerControls ? (
+                            <div className="flex justify-end items-center gap-4">
+                                {renderClaimAction()}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
+                {anyError && (
+                    <p className="text-red-600 text-xs mt-2 text-center w-full">{anyError}</p>
+                )}
             </div>
         </div>
     );
