@@ -549,16 +549,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
     return (
         <div className="relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
-            {showOwnerControls && (
-                <button
-                    onClick={() => setIsDeleteModalOpen(true)}
-                    className="absolute top-2 right-2 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors z-10"
-                    aria-label="Delete airdrop"
-                >
-                    <TrashIcon className="w-5 h-5" />
-                </button>
-            )}
-
             <div className="flex items-start gap-4">
                 <img
                     src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
@@ -566,7 +556,18 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                    <h2 className="text-base font-semibold text-slate-800 truncate">{airdrop.name}</h2>
+                    <div className="flex justify-between items-start gap-2">
+                        <h2 className="text-base font-semibold text-slate-800 truncate pr-2">{airdrop.name}</h2>
+                        {showOwnerControls && (
+                            <button
+                                onClick={() => setIsDeleteModalOpen(true)}
+                                className="-mt-1 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                aria-label="Delete airdrop"
+                            >
+                                <TrashIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
                 </div>
             </div>
