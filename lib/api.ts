@@ -88,3 +88,21 @@ export const createAirdrop = async (airdropData: AirdropCreationPayload): Promis
     endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,
   };
 };
+
+/**
+ * Deletes an airdrop by sending a DELETE request to the API.
+ */
+export const deleteAirdrop = async (airdropId: number, userAddress: string): Promise<void> => {
+  const response = await fetch('/api/airdrops', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ airdropId, userAddress }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to delete airdrop' }));
+    throw new Error(errorData.message || 'Failed to delete airdrop');
+  }
+};

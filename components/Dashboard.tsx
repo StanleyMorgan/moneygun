@@ -9,6 +9,7 @@ interface DashboardProps {
   airdrops: Airdrop[];
   onCreateNew: () => void;
   onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
+  onAirdropDelete: (airdropId: number) => void;
 }
 
 const statusOrder: Record<AirdropStatus, number> = {
@@ -39,7 +40,7 @@ const sortAirdrops = (airdrops: Airdrop[]) => {
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropUpdate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropUpdate, onAirdropDelete }) => {
   const [activeTab, setActiveTab] = useState<'earn' | 'manage'>('earn');
   const { address, isConnected } = useAccount();
 
@@ -129,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropU
           </h1>
           {airdropsToDisplay.length > 0 ? (
               airdropsToDisplay.map(airdrop => (
-                <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} viewAsOwner={activeTab === 'manage'} />
+                <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} viewAsOwner={activeTab === 'manage'} onAirdropDelete={onAirdropDelete} />
               ))
           ) : (
             <EmptyState />

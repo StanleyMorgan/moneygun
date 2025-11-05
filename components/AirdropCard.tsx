@@ -8,6 +8,8 @@ import { airdropABI, erc20ABI } from '../lib/abi';
 // FIX: Import `BaseError` from `viem` to safely check the error type before calling `.walk()`.
 import { formatUnits, parseUnits, getAddress, UserRejectedRequestError, BaseError } from 'viem';
 import { InfoIcon } from './icons/InfoIcon';
+import { deleteAirdrop } from '../lib/api';
+import { TrashIcon } from './icons/TrashIcon';
 
 export const getComputedStatus = (airdrop: Airdrop, claimedCount?: number, recipientCount?: number): AirdropStatus => {
     if (airdrop.status === AirdropStatus.Failed) {
@@ -74,6 +76,7 @@ interface AirdropCardProps {
   airdrop: Airdrop;
   onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
   viewAsOwner: boolean;
+  onAirdropDelete: (airdropId: number) => void;
 }
 
 const getBlockExplorerUrl = (network: string | undefined, address: string | undefined) => {
@@ -112,13 +115,16 @@ const formatDateTime = (date: Date | undefined) => {
 };
 
 
-const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, viewAsOwner }) => {
+const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdropDelete }) => {
     const { address, isConnected, chain } = useAccount();
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [claimError, setClaimError] = useState('');
     const [fundingStatus, setFundingStatus] = useState<'idle' | 'approving' | 'funding' | 'success' | 'error'>('idle');
     const [fundingError, setFundingError] = useState('');
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteStatus, setDeleteStatus] = useState<'idle' | 'deleting' | 'error'>('idle');
+    const [deleteError, setDeleteError] = useState('');
     // FIX: Added 'error' to the status type to allow setting an error state. This resolves multiple downstream type errors.
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
 
@@ -416,6 +422,22 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         }
     }, [claimErrorHook]);
 
+    const handleDelete = async () => {
+        if (!isActualOwner || !address) return;
+        setDeleteStatus('deleting');
+        setDeleteError('');
+        try {
+            await deleteAirdrop(airdrop.id, address);
+            // Propagate deletion up to App.tsx to remove from state
+            onAirdropDelete(airdrop.id);
+            // No need to close modal here, as the component will unmount
+        } catch (error: any) {
+            console.error("Failed to delete airdrop:", error);
+            setDeleteError(error.message || 'Failed to delete airdrop. Please try again.');
+            setDeleteStatus('error');
+        }
+    };
+
     const claimButtonText = () => {
         if (claimStatus === 'success') return 'Claimed!';
         if (claimStatus === 'waiting') return 'Processing...';
@@ -526,7 +548,17 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
 
     return (
-        <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
+        <div className="relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
+            {showOwnerControls && (
+                <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="absolute top-2 right-2 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors z-10"
+                    aria-label="Delete airdrop"
+                >
+                    <TrashIcon className="w-5 h-5" />
+                </button>
+            )}
+
             <div className="flex items-start gap-4">
                 <img
                     src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
@@ -634,6 +666,46 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
                     <p className="text-red-600 text-xs mt-2 text-center w-full">{anyError}</p>
                 )}
             </div>
+            {isDeleteModalOpen && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="delete-modal-title"
+                >
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+                        <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Delete Airdrop?</h2>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Are you sure you want to permanently delete the <strong className="font-medium">"{airdrop.name}"</strong> airdrop? This action cannot be undone.
+                        </p>
+
+                        {deleteError && (
+                            <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{deleteError}</p>
+                        )}
+                        
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setDeleteError('');
+                                    setDeleteStatus('idle');
+                                }}
+                                disabled={deleteStatus === 'deleting'}
+                                className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleteStatus === 'deleting'}
+                                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-400 disabled:cursor-wait"
+                            >
+                                {deleteStatus === 'deleting' ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -63,6 +63,10 @@ const App: React.FC = () => {
     );
   }, []);
 
+  const handleDeleteAirdrop = useCallback((airdropId: number) => {
+    setAirdrops(prevAirdrops => prevAirdrops.filter(ad => ad.id !== airdropId));
+  }, []);
+
   const handleCreateNew = () => setView('new-airdrop');
   const handleBackToDashboard = () => setView('dashboard');
 
@@ -76,7 +80,7 @@ const App: React.FC = () => {
     }
 
     if (view === 'dashboard') {
-      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} onAirdropUpdate={handleAirdropUpdate} />;
+      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} onAirdropUpdate={handleAirdropUpdate} onAirdropDelete={handleDeleteAirdrop} />;
     }
 
     if (view === 'new-airdrop') {

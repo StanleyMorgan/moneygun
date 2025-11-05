@@ -237,8 +237,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 client.release();
             }
         }
+    } else if (req.method === 'DELETE') {
+        const client = await db.connect();
+        try {
+            const { airdropId, userAddress } = req.body;
+
+            if (!airdropId || !userAddress || !isAddress(userAddress)) {
+                return res.status(400).json({ message: 'Invalid request parameters for deletion.' });
+            }
+
+            await client.sql`BEGIN`;
+
+            // Check for ownership
+            const { rows: airdropRows } = await client.sql`
+                SELECT creator_address FROM airdrops WHERE id = ${Number(airdropId)};
+            `;
+
+            if (airdropRows.length === 0) {
+                await client.sql`ROLLBACK`;
+                return res.status(404).json({ message: 'Airdrop not found.' });
+            }
+
+            if (getAddress(airdropRows[0].creator_address) !== getAddress(userAddress)) {
+                await client.sql`ROLLBACK`;
+                return res.status(403).json({ message: 'You are not authorized to delete this airdrop.' });
+            }
+
+            // Explicitly delete from child table first, then parent.
+            await client.sql`DELETE FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};`;
+            await client.sql`DELETE FROM airdrops WHERE id = ${Number(airdropId)};`;
+
+            await client.sql`COMMIT`;
+
+            return res.status(200).json({ message: 'Airdrop deleted successfully.' });
+
+        } catch (error) {
+            await client.sql`ROLLBACK`;
+            console.error('Airdrop deletion error:', error);
+            const message = error instanceof Error ? error.message : 'Failed to delete airdrop.';
+            return res.status(500).json({ message });
+        } finally {
+            client.release();
+        }
     } else {
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 }
