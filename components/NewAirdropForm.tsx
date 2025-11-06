@@ -18,6 +18,11 @@ const chainIdMap: Record<string, number> = {
   'base': base.id,
 };
 
+const SUPPORTED_NETWORKS: { id: string; name: string; iconUrl: string }[] = [
+  { id: 'base-sepolia', name: 'Base Sepolia', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' },
+  { id: 'base', name: 'Base', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' }
+];
+
 const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`; decimals: number; iconUrl: string }[]> = {
   'base-sepolia': [
     { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
@@ -84,8 +89,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     }
   }, [isConnected, chain, network, switchChain]);
 
-  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newNetwork = e.target.value;
+  const handleNetworkSelect = (newNetwork: string) => {
       setNetwork(newNetwork);
       setSelectedTokenAddress(''); // Reset token selection on network change
       if (switchChain && chainIdMap[newNetwork]) {
@@ -375,11 +379,25 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             <h2 className="text-base font-semibold text-slate-700">Token & Network</h2>
             <div className="space-y-4">
                 <div>
-                    <label htmlFor="network" className="block text-xs font-medium text-slate-600 mb-1">Network</label>
-                    <select id="network" value={network} onChange={handleNetworkChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                        <option value="base-sepolia">Base Sepolia</option>
-                        <option value="base">Base</option>
-                    </select>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Network</label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {SUPPORTED_NETWORKS.map(net => (
+                            <button
+                                type="button"
+                                key={net.id}
+                                onClick={() => handleNetworkSelect(net.id)}
+                                aria-pressed={network === net.id}
+                                className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                    network === net.id
+                                        ? 'border-purple-600 bg-purple-50'
+                                        : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                                }`}
+                            >
+                                <img src={net.iconUrl} alt={`${net.name} logo`} className="w-5 h-5" />
+                                <span className="font-semibold text-sm text-slate-800">{net.name}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>

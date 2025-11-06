@@ -1,12 +1,10 @@
 /// <reference types="react" />
 
-// FIX: Removed unused `ChainNamespace` type that was causing a compile error.
-
-// FIX: To augment global types, this file must be a module. Global augmentations
-// are wrapped in `declare global`, and an empty `export {}` ensures the file is
-// treated as a module, fixing the "Top-level declarations" error.
+// FIX: Wrap global augmentations in `declare global` to comply with module-scoped type definitions.
+// This resolves the error about top-level declarations and allows TypeScript to correctly
+// recognize the augmented `NodeJS` and `JSX` namespaces across the project.
 declare global {
-  // Augment the NodeJS namespace to include environment variables.
+  // Augment the NodeJS namespace to include environment variables for Vite.
   namespace NodeJS {
     interface ProcessEnv {
       readonly REOWN_PROJECT_ID: string;
@@ -30,10 +28,8 @@ declare global {
         HTMLElement
       > & {
         disabled?: boolean;
-        // FIX: The 'balance' property is required by the base AppKit element type, so it cannot be optional.
         balance: 'show' | 'hide';
         size?: 'md' | 'sm';
-        // FIX: The `label` property is required by the base AppKit element type. Making it non-optional resolves the type incompatibility.
         label: string;
         loadingLabel?: string;
         namespace?: 'eip155' | 'solana' | 'bip122';
@@ -41,5 +37,3 @@ declare global {
     }
   }
 }
-
-export {};
