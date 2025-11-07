@@ -3,8 +3,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
 
@@ -135,17 +136,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { airdropId, userAddress } = req.body;
                 if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
 
-                // TODO: Here, you would implement the logic to check on-chain logs using Alchemy/Viem `getLogs`
-                // using the `topics` stored for this airdropId.
-                // For demonstration, we will assume the quest is completed.
-                const isQuestCompleted = true; 
+                const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+                if (!alchemyApiKey) {
+                    throw new Error('Alchemy API key is not configured on the server.');
+                }
 
-                if (!isQuestCompleted) return res.status(400).json({ message: 'Quest completion event not found on-chain.' });
-
-                const { rows: airdropRows } = await sql`SELECT max_reward, token_decimals FROM airdrops WHERE id = ${airdropId}`;
+                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 
                 const airdrop = airdropRows[0];
+                const chain = airdrop.network === 'base' ? base : baseSepolia;
+                // Fix: Manually construct the Alchemy RPC URL since `chain.rpcUrls.alchemy` is not a reliable property.
+                const rpcUrl = `https://${airdrop.network === 'base' ? 'base-mainnet' : 'base-sepolia'}.g.alchemy.com/v2/${alchemyApiKey}`;
+                
+                const client = createPublicClient({
+                    chain: chain,
+                    transport: http(rpcUrl),
+                });
+                
+                const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
+                // Fix: Removed `events: undefined`. Explicitly setting it can confuse TypeScript's
+                // type inference for the `getLogs` parameters, causing it to reject the `topics` property.
+                const logs = await client.getLogs({
+                    // Note: We don't specify a contract address, allowing to track events across any contract.
+                    // This is powerful but can be slow. For performance, a target contract address should be added to the airdrop config.
+                    // The topics array should contain the event signature hash and any indexed parameters.
+                    // We assume one of the indexed topics will be the user's address.
+                    topics: [airdrop.topics, null, paddedUserAddress], 
+                    fromBlock: BigInt(0), // In a real app, use a more recent fromBlock based on airdrop start time for performance.
+                });
+
+                const isQuestCompleted = logs.length > 0;
+
+                if (!isQuestCompleted) return res.status(400).json({ message: 'Quest completion event not found on-chain.' });
+
                 const amount = String(airdrop.max_reward);
                 const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
 
