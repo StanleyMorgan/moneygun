@@ -124,3 +124,16 @@ export const verifyQuest = async (airdropId: number, userAddress: string): Promi
     }
     return response.json();
 };
+
+/**
+ * Fetches the public verifier address from the backend.
+ */
+export const getVerifierAddress = async (): Promise<`0x${string}`> => {
+  const response = await fetch('/api/airdrops?action=getVerifierAddress');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to fetch verifier address' }));
+    throw new Error(errorData.message);
+  }
+  const { verifierAddress } = await response.json();
+  return verifierAddress;
+};

@@ -48,7 +48,16 @@ const signQuestData = async (userAddress: string, questId: number, amount: strin
 // Vercel Serverless Function Handler
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
-        const { airdropId, userAddress } = req.query;
+        const { airdropId, userAddress, action } = req.query;
+
+        // --- Get Public Verifier Address ---
+        if (action === 'getVerifierAddress') {
+            const verifierAddress = process.env.VERIFIER_ADDRESS as `0x${string}` | undefined;
+            if (!verifierAddress) {
+                return res.status(500).json({ message: 'Verifier address is not configured on the server.' });
+            }
+            return res.status(200).json({ verifierAddress });
+        }
 
         // --- Eligibility Check for a specific user and airdrop ---
         if (airdropId && userAddress) {
@@ -204,8 +213,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
                     }
                 } else if (type === 'Quest') {
-                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, verifierAddress, topics } = req.body;
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !verifierAddress || !topics) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, topics } = req.body;
+                     const verifierAddress = process.env.VERIFIER_ADDRESS;
+                     if (!verifierAddress) {
+                        throw new Error("Verifier address is not configured on the server.");
+                     }
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
                      const { rows } = await client.sql`
                         INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, verifier_address, topics, created_at)
                         VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${verifierAddress}, ${JSON.stringify(topics)}, NOW())

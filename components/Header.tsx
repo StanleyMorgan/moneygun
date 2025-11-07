@@ -19,7 +19,8 @@ const Header: React.FC = () => {
           </div>
           <div className="flex items-center">
             {isConnected ? (
-                <appkit-button balance="hide" label="" />
+                // FIX: Added the required 'size' property to appkit-button to align with updated type definitions.
+                <appkit-button balance="hide" label="" size="md" />
             ) : (
                 <appkit-connect-button label="Connect" />
             )}

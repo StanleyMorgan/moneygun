@@ -9,6 +9,7 @@ import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { airdropFactoryABI, airdropABI, questAirdropFactoryABI } from '../lib/abi';
 import { base, baseSepolia } from 'wagmi/chains';
+import { getVerifierAddress } from '../lib/api';
 
 // Contract Addresses
 const AIRDROP_FACTORY_ADDRESS = getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2');
@@ -69,7 +70,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   
   // Quest-specific fields
   const [topics, setTopics] = useState('');
-  const [verifierAddress, setVerifierAddress] = useState('');
+  const [fetchedVerifierAddress, setFetchedVerifierAddress] = useState<`0x${string}` | null>(null);
   const [recipientCount, setRecipientCount] = useState(0);
   const [maxReward, setMaxReward] = useState(0);
 
@@ -104,6 +105,21 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     }
   }, [isConnected, chain, network, switchChain]);
   
+  useEffect(() => {
+    if (airdropType === AirdropType.Quest && !fetchedVerifierAddress) {
+      const fetchAddress = async () => {
+        try {
+          const address = await getVerifierAddress();
+          setFetchedVerifierAddress(address);
+        } catch (err) {
+          console.error("Failed to fetch verifier address:", err);
+          setError("Could not load verifier configuration. Please try again.");
+        }
+      };
+      fetchAddress();
+    }
+  }, [airdropType, fetchedVerifierAddress]);
+
   useEffect(() => {
     // Calculate total amount based on type
     if (airdropType === AirdropType.Whitelist) {
@@ -228,8 +244,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const handleQuestSubmit = async () => {
     if (!commonValidation()) return;
-    if (!isAddress(verifierAddress)) {
-      setError('Invalid Verifier Address.');
+    if (!fetchedVerifierAddress) {
+      setError('Verifier address could not be loaded. Please wait or refresh.');
       return;
     }
     if (!topics.trim()) {
@@ -247,7 +263,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         address: QUEST_AIRDROP_FACTORY_ADDRESS,
         abi: questAirdropFactoryABI,
         functionName: 'createQuestAirdrop',
-        args: [getAddress(selectedToken!.address), address!, getAddress(verifierAddress)],
+        args: [getAddress(selectedToken!.address), address!, fetchedVerifierAddress],
         account: address,
         chain: chain,
       });
@@ -359,7 +375,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         if (status !== 'saving' || !newAirdropAddress || !selectedToken) return;
 
         try {
-            let payload: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] };
+            let payload: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress' | 'verifierAddress'> & { whitelist?: WhitelistEntry[] };
 
             if (airdropType === AirdropType.Whitelist) {
                 payload = {
@@ -378,7 +394,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
                     recipientCount: Number(recipientCount), maxReward: Number(maxReward),
-                    verifierAddress: getAddress(verifierAddress),
                     topics: topics.split('\n').map(t => t.trim()).filter(t => t),
                 };
             }
@@ -424,9 +439,13 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700">Quest Details</h2>
       <div>
-          <label htmlFor="verifierAddress" className="block text-xs font-medium text-slate-600 mb-1">Verifier Address</label>
-          <p className="text-xs text-slate-500 mb-2">The address that will sign off-chain messages to authorize claims.</p>
-          <input type="text" id="verifierAddress" value={verifierAddress} onChange={e => setVerifierAddress(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x..."/>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Verifier Address</label>
+           {fetchedVerifierAddress ? (
+            <p className="text-sm font-mono bg-slate-100 p-2 rounded-md text-slate-600 break-all">{fetchedVerifierAddress}</p>
+          ) : (
+            <p className="text-sm text-slate-500 animate-pulse">Loading from configuration...</p>
+          )}
+          <p className="text-xs text-slate-500 mt-2">The address that signs claims is automatically configured.</p>
       </div>
       <div>
           <label htmlFor="topics" className="block text-xs font-medium text-slate-600 mb-1">Event Topics</label>
