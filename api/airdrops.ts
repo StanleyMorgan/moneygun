@@ -3,7 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, hashMessage, toHex, pad } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
