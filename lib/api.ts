@@ -40,17 +40,17 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
     createdAt: new Date(item.createdAt),
     startTime: item.startTime ? new Date(item.startTime) : undefined,
     endTime: item.endTime ? new Date(item.endTime) : undefined,
+    // Topics are stored as JSONB in the DB
+    topics: typeof item.topics === 'string' ? JSON.parse(item.topics) : item.topics,
   }));
 };
 
 /**
  * Defines the payload for creating a new airdrop.
- * Now includes contractAddress and merkleRoot, as these are determined on the client-side.
+ * Now includes fields for both Whitelist and Quest types.
  */
-export interface AirdropCreationPayload extends Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'maxReward' | 'claimedCount'> {
+export interface AirdropCreationPayload extends Omit<Airdrop, 'id' | 'createdAt' | 'claimedCount'> {
   whitelist?: WhitelistEntry[];
-  contractAddress?: string;
-  merkleRoot?: string;
 }
 
 
@@ -86,6 +86,7 @@ export const createAirdrop = async (airdropData: AirdropCreationPayload): Promis
     createdAt: new Date(camelCaseData.createdAt),
     startTime: camelCaseData.startTime ? new Date(camelCaseData.startTime) : undefined,
     endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,
+    topics: typeof camelCaseData.topics === 'string' ? JSON.parse(camelCaseData.topics) : camelCaseData.topics,
   };
 };
 
@@ -105,4 +106,21 @@ export const deleteAirdrop = async (airdropId: number, userAddress: string): Pro
     const errorData = await response.json().catch(() => ({ message: 'Failed to delete airdrop' }));
     throw new Error(errorData.message || 'Failed to delete airdrop');
   }
+};
+
+/**
+ * Calls the backend to verify quest completion and get a signature.
+ */
+export const verifyQuest = async (airdropId: number, userAddress: string): Promise<{ amount: string; signature: `0x${string}` }> => {
+    const response = await fetch('/api/airdrops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verifyQuest', airdropId, userAddress }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to verify quest completion' }));
+        throw new Error(errorData.message || 'Verification failed');
+    }
+    return response.json();
 };

@@ -42,6 +42,8 @@ export interface Airdrop {
   merkleRoot?: string;
   maxReward?: number;
   claimedCount?: number;
+  verifierAddress?: string;
+  topics?: string[];
 }
 
 // Detailed configuration loaded from a JSON file

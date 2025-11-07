@@ -7,11 +7,12 @@ import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import Papa from 'papaparse';
 import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
-import { airdropFactoryABI, airdropABI } from '../lib/abi';
+import { airdropFactoryABI, airdropABI, questAirdropFactoryABI } from '../lib/abi';
 import { base, baseSepolia } from 'wagmi/chains';
 
-// Base Sepolia Airdrop Factory Contract Address
+// Contract Addresses
 const AIRDROP_FACTORY_ADDRESS = getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2');
+const QUEST_AIRDROP_FACTORY_ADDRESS = getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64');
 
 const chainIdMap: Record<string, number> = {
   'base-sepolia': baseSepolia.id,
@@ -36,7 +37,7 @@ const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`;
 
 
 interface NewAirdropFormProps {
-  onAddAirdrop: (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => void;
+  onAddAirdrop: (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'>) => void;
   onBack: () => void;
 }
 
@@ -55,6 +56,7 @@ const statusMessages: Record<FormStatus, string> = {
 };
 
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
+  const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
@@ -64,6 +66,13 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [endTime, setEndTime] = useState('');
   const [whitelistCsv, setWhitelistCsv] = useState('');
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
+  
+  // Quest-specific fields
+  const [topics, setTopics] = useState('');
+  const [verifierAddress, setVerifierAddress] = useState('');
+  const [recipientCount, setRecipientCount] = useState(0);
+  const [maxReward, setMaxReward] = useState(0);
+
   const [totalAmount, setTotalAmount] = useState(0);
   const [error, setError] = useState('');
   
@@ -73,11 +82,17 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
+  
+  // Whitelist contract hooks
   const { data: createAirdropHash, writeContract: createAirdropContract, error: createError } = useWriteContract();
   const { data: setMerkleHash, writeContract: setMerkleContract, error: setMerkleError } = useWriteContract();
-  
   const { isSuccess: isCreateSuccess, data: createReceipt } = useWaitForTransactionReceipt({ hash: createAirdropHash });
   const { isSuccess: isSetMerkleSuccess } = useWaitForTransactionReceipt({ hash: setMerkleHash });
+
+  // Quest contract hooks
+  const { data: createQuestHash, writeContract: createQuestContract, error: createQuestError } = useWriteContract();
+  const { isSuccess: isCreateQuestSuccess, data: createQuestReceipt } = useWaitForTransactionReceipt({ hash: createQuestHash });
+
   
   const currentTokens = SUPPORTED_TOKENS[network] || [];
   const selectedToken = currentTokens.find(t => t.address === selectedTokenAddress);
@@ -88,6 +103,17 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         switchChain({ chainId: chainIdMap[network] });
     }
   }, [isConnected, chain, network, switchChain]);
+  
+  useEffect(() => {
+    // Calculate total amount based on type
+    if (airdropType === AirdropType.Whitelist) {
+      const newTotal = whitelist.reduce((sum, entry) => sum + Number(entry.amount), 0);
+      setTotalAmount(newTotal);
+    } else { // Quest
+      setTotalAmount(recipientCount * maxReward);
+    }
+  }, [whitelist, recipientCount, maxReward, airdropType]);
+
 
   const handleNetworkSelect = (newNetwork: string) => {
       setNetwork(newNetwork);
@@ -97,11 +123,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       }
   };
 
-
   const handleWhitelistParse = () => {
-    if (!whitelistCsv.trim()) {
+    if (airdropType !== AirdropType.Whitelist || !whitelistCsv.trim()) {
       setWhitelist([]);
-      setTotalAmount(0);
       setError('');
       return;
     }
@@ -112,19 +136,16 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         if (results.errors.length > 0) {
             const firstError = results.errors[0];
             if (firstError) {
-                // The `row` property on a PapaParse error can be undefined, so we must handle that case.
                 const lineInfo = firstError.row !== undefined ? `on line ${firstError.row + 1}` : 'in an unknown row';
                 setError(`CSV parsing error ${lineInfo}: ${firstError.message}`);
             } else {
                 setError('An unknown CSV parsing error occurred.');
             }
             setWhitelist([]);
-            setTotalAmount(0);
             return;
         }
         
         const newWhitelist: WhitelistEntry[] = [];
-        let newTotalAmount = 0;
         let parseError = '';
 
         for (const [index, row] of results.data.entries()) {
@@ -143,80 +164,116 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             break;
           }
           newWhitelist.push({ address: getAddress(address), amount: String(amountNum) });
-          newTotalAmount += amountNum;
         }
 
         if (parseError) {
           setError(parseError);
           setWhitelist([]);
-          setTotalAmount(0);
         } else {
           setError('');
           setWhitelist(newWhitelist);
-          setTotalAmount(newTotalAmount);
         }
       },
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setStatus('idle');
-
+  const commonValidation = () => {
     if (!isConnected || !address) {
-        setError("Please connect your wallet first.");
-        return;
+      setError("Please connect your wallet first.");
+      return false;
     }
     if (!selectedToken) {
-        setError('Please select a token.');
-        return;
-    }
-    if (whitelist.length === 0) {
-        setError('Whitelist cannot be empty. Please provide a valid CSV and wait for it to be processed.');
-        return;
+      setError('Please select a token.');
+      return false;
     }
     if (!name || !description || !startTime || !endTime) {
-        setError('Please fill all required fields.');
-        return;
+      setError('Please fill all required fields.');
+      return false;
     }
     if (name.length > 30) {
-        setError('Name cannot exceed 30 characters.');
-        return;
+      setError('Name cannot exceed 30 characters.');
+      return false;
     }
     if (description.length > 140) {
-        setError('Description cannot exceed 140 characters.');
-        return;
+      setError('Description cannot exceed 140 characters.');
+      return false;
     }
+    return true;
+  };
 
+  const handleWhitelistSubmit = async () => {
+    if (!commonValidation()) return;
+    if (whitelist.length === 0) {
+      setError('Whitelist cannot be empty.');
+      return;
+    }
+    
     try {
-        // Step 1: Generate Merkle Root
         setStatus('generatingMerkle');
-        console.log('[Create Airdrop] Step 1: Generating Merkle root...');
         const merkleResponse = await fetch('/api/airdrops', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'generateMerkle', whitelist, tokenDecimals: selectedToken.decimals }),
+            body: JSON.stringify({ action: 'generateMerkle', whitelist, tokenDecimals: selectedToken!.decimals }),
         });
         if (!merkleResponse.ok) throw new Error('Failed to generate Merkle root.');
         const { merkleRoot: newMerkleRoot } = await merkleResponse.json();
         setMerkleRoot(newMerkleRoot);
-        console.log('[Create Airdrop] Step 1 Success: Merkle Root:', newMerkleRoot);
-
-        // Step 2: Create Airdrop contract (triggers useEffect)
         setStatus('creatingContract');
     } catch (err: any) {
-        console.error("Airdrop creation process failed:", err);
+        console.error("Whitelist creation process failed:", err);
         setError(err.message || 'An unknown error occurred.');
         setStatus('error');
     }
   };
 
-  // Effect for Step 2: Create Airdrop Contract
+  const handleQuestSubmit = async () => {
+    if (!commonValidation()) return;
+    if (!isAddress(verifierAddress)) {
+      setError('Invalid Verifier Address.');
+      return;
+    }
+    if (!topics.trim()) {
+      setError('Please provide at least one event topic.');
+      return;
+    }
+    if (recipientCount <= 0 || maxReward <= 0) {
+      setError('Recipient count and reward must be greater than zero.');
+      return;
+    }
+    
+    try {
+      setStatus('creatingContract');
+      createQuestContract({
+        address: QUEST_AIRDROP_FACTORY_ADDRESS,
+        abi: questAirdropFactoryABI,
+        functionName: 'createQuestAirdrop',
+        args: [getAddress(selectedToken!.address), address!, getAddress(verifierAddress)],
+        account: address,
+        chain: chain,
+      });
+      setStatus('waitingForCreation');
+    } catch (err: any) {
+      console.error("Quest creation process failed:", err);
+      setError(err.message || 'An unknown error occurred.');
+      setStatus('error');
+    }
+  };
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setStatus('idle');
+    if (airdropType === AirdropType.Whitelist) {
+      await handleWhitelistSubmit();
+    } else {
+      await handleQuestSubmit();
+    }
+  };
+
+  // Whitelist Effect: Create Airdrop Contract
   useEffect(() => {
-    if (status === 'creatingContract' && merkleRoot && address && chain && selectedToken) {
-        console.log('[Create Airdrop] Step 2: Calling createAirdrop contract...');
-        console.log('Params:', { factory: AIRDROP_FACTORY_ADDRESS, token: selectedToken.address, owner: address });
+    if (status === 'creatingContract' && airdropType === AirdropType.Whitelist && merkleRoot && address && chain && selectedToken) {
         createAirdropContract({
             address: AIRDROP_FACTORY_ADDRESS,
             abi: airdropFactoryABI,
@@ -227,45 +284,56 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         });
         setStatus('waitingForCreation');
     }
-  }, [status, merkleRoot, address, selectedToken, createAirdropContract, chain]);
+  }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain]);
 
-  // Effect for Step 3: Parse contract address from logs
+  // Whitelist/Quest Effect: Parse contract address from logs
   useEffect(() => {
-    if (isCreateSuccess && createReceipt) {
-        console.log('[Create Airdrop] Step 2 Success: Transaction confirmed.');
+    const isWhitelist = airdropType === AirdropType.Whitelist;
+    const receipt = isWhitelist ? createReceipt : createQuestReceipt;
+    const isSuccess = isWhitelist ? isCreateSuccess : isCreateQuestSuccess;
+
+    if (isSuccess && receipt) {
         try {
-            const logs = parseEventLogs({
-                abi: airdropFactoryABI,
-                logs: createReceipt.logs,
-                eventName: 'AirdropCreated',
-            });
-
-            if (logs.length === 0) {
-                console.error("Could not find AirdropCreated event in transaction logs. All logs:", createReceipt.logs);
-                throw new Error("AirdropCreated event not found in transaction logs.");
+            // Fix: Split the logic to ensure TypeScript can correctly infer the log argument types.
+            if (isWhitelist) {
+                const logs = parseEventLogs({
+                    abi: airdropFactoryABI,
+                    logs: receipt.logs,
+                    eventName: 'AirdropCreated',
+                });
+                if (logs.length === 0) throw new Error('AirdropCreated event not found.');
+                
+                const newAddress = logs[0].args.airdrop;
+                if (!newAddress) throw new Error("Parsed log is missing the new contract address argument.");
+                
+                setNewAirdropAddress(newAddress);
+                setStatus('settingMerkle');
+            } else { // It's a Quest airdrop
+                const logs = parseEventLogs({
+                    abi: questAirdropFactoryABI,
+                    logs: receipt.logs,
+                    eventName: 'QuestAirdropCreated',
+                });
+                if (logs.length === 0) throw new Error('QuestAirdropCreated event not found.');
+                
+                const newAddress = logs[0].args.quest;
+                if (!newAddress) throw new Error("Parsed log is missing the new contract address argument.");
+                
+                setNewAirdropAddress(newAddress);
+                setStatus('saving');
             }
-
-            const newAddress = logs[0].args.airdrop;
-            if (!newAddress) {
-                throw new Error("Parsed log is missing the 'airdrop' address argument.");
-            }
-            
-            console.log('[Create Airdrop] Step 3: Parsed new airdrop address:', newAddress);
-            setNewAirdropAddress(newAddress);
-            setStatus('settingMerkle');
         } catch (err) {
             console.error('Failed to parse airdrop address from logs:', err);
             setError('Could not find new airdrop address in transaction logs.');
             setStatus('error');
         }
     }
-  }, [isCreateSuccess, createReceipt]);
+  }, [isCreateSuccess, createReceipt, isCreateQuestSuccess, createQuestReceipt, airdropType]);
 
-  // Effect for Step 4: Set Merkle Root
+
+  // Whitelist Effect: Set Merkle Root
   useEffect(() => {
-    if (status === 'settingMerkle' && newAirdropAddress && merkleRoot && address && chain) {
-        console.log('[Create Airdrop] Step 4: Calling setMerkleRoot on new contract...');
-        console.log('Params:', { newAirdropAddress, merkleRoot });
+    if (status === 'settingMerkle' && airdropType === AirdropType.Whitelist && newAirdropAddress && merkleRoot && address && chain) {
         setMerkleContract({
             address: newAirdropAddress,
             abi: airdropABI,
@@ -276,56 +344,112 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         });
         setStatus('waitingForMerkle');
     }
-  }, [status, newAirdropAddress, merkleRoot, setMerkleContract, address, chain]);
+  }, [status, airdropType, newAirdropAddress, merkleRoot, setMerkleContract, address, chain]);
 
-  // Effect for Step 5: Save to DB
+  // Whitelist Effect for final save (after Merkle is set)
+  useEffect(() => {
+    if (isSetMerkleSuccess && airdropType === AirdropType.Whitelist) {
+      setStatus('saving');
+    }
+  }, [isSetMerkleSuccess, airdropType]);
+
+  // Combined Save to DB Effect
   useEffect(() => {
     const saveAirdrop = async () => {
-        if (isSetMerkleSuccess && newAirdropAddress && merkleRoot && selectedToken) {
-            console.log('[Create Airdrop] Step 4 Success: Merkle root set.');
-            setStatus('saving');
-            console.log('[Create Airdrop] Step 5: Saving airdrop to database...');
-            try {
-                await onAddAirdrop({
-                    name,
-                    description,
-                    image,
-                    type: AirdropType.Whitelist,
-                    tokenAddress: selectedToken.address,
-                    tokenSymbol: selectedToken.symbol,
-                    tokenDecimals: selectedToken.decimals,
-                    network,
-                    totalAmount,
-                    status: AirdropStatus.Draft,
-                    startTime: new Date(startTime),
-                    endTime: new Date(endTime),
-                    whitelist,
+        if (status !== 'saving' || !newAirdropAddress || !selectedToken) return;
+
+        try {
+            let payload: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] };
+
+            if (airdropType === AirdropType.Whitelist) {
+                payload = {
+                    name, description, image, type: AirdropType.Whitelist,
+                    tokenAddress: selectedToken.address, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
+                    network, totalAmount, status: AirdropStatus.Draft,
+                    startTime: new Date(startTime), endTime: new Date(endTime),
+                    whitelist, contractAddress: newAirdropAddress, merkleRoot: merkleRoot!,
+                    recipientCount: whitelist.length,
+                };
+            } else { // Quest
+                payload = {
+                    name, description, image, type: AirdropType.Quest,
+                    tokenAddress: selectedToken.address, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
+                    network, totalAmount, status: AirdropStatus.Draft,
+                    startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
-                    merkleRoot,
-                });
-                console.log('[Create Airdrop] Step 5 Success: Airdrop saved.');
-                setStatus('success');
-            } catch (err: any) {
-                console.error('Failed to save airdrop to DB:', err);
-                setError(`On-chain actions succeeded, but failed to save to DB: ${err.message}`);
-                setStatus('error');
+                    recipientCount: Number(recipientCount), maxReward: Number(maxReward),
+                    verifierAddress: getAddress(verifierAddress),
+                    topics: topics.split('\n').map(t => t.trim()).filter(t => t),
+                };
             }
+
+            await onAddAirdrop(payload);
+            setStatus('success');
+        } catch (err: any) {
+            console.error('Failed to save airdrop to DB:', err);
+            setError(`On-chain actions succeeded, but failed to save to DB: ${err.message}`);
+            setStatus('error');
         }
     };
     saveAirdrop();
-  }, [isSetMerkleSuccess, newAirdropAddress, merkleRoot, selectedToken]);
+  }, [status, newAirdropAddress, selectedToken, airdropType]);
+
 
   useEffect(() => {
-      if (createError) {
-          setError(`Contract creation failed: ${createError.message}`);
+      const anyError = createError || setMerkleError || createQuestError;
+      if (anyError) {
+          setError(`Transaction failed: ${anyError.message}`);
           setStatus('error');
       }
-      if (setMerkleError) {
-          setError(`Setting Merkle root failed: ${setMerkleError.message}`);
-          setStatus('error');
-      }
-  }, [createError, setMerkleError]);
+  }, [createError, setMerkleError, createQuestError]);
 
+  const renderWhitelistFields = () => (
+    <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-700">Whitelist</h2>
+        <div>
+            <label htmlFor="whitelist" className="block text-xs font-medium text-slate-600 mb-1">Recipients & Amounts (CSV)</label>
+            <p className="text-xs text-slate-500 mb-2">Enter one recipient per line in the format: <code>address,amount</code></p>
+            <textarea id="whitelist" value={whitelistCsv} onChange={e => setWhitelistCsv(e.target.value)} onBlur={handleWhitelistParse} rows={8} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x...,100&#10;0x...,250"/>
+        </div>
+        {whitelist.length > 0 && (
+            <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-md">
+                <p><strong>Recipients:</strong> {whitelist.length}</p>
+                <p><strong>Total Amount:</strong> {totalAmount.toLocaleString()} {selectedToken?.symbol || ''}</p>
+            </div>
+        )}
+    </div>
+  );
+
+  const renderQuestFields = () => (
+    <div className="space-y-4">
+      <h2 className="text-base font-semibold text-slate-700">Quest Details</h2>
+      <div>
+          <label htmlFor="verifierAddress" className="block text-xs font-medium text-slate-600 mb-1">Verifier Address</label>
+          <p className="text-xs text-slate-500 mb-2">The address that will sign off-chain messages to authorize claims.</p>
+          <input type="text" id="verifierAddress" value={verifierAddress} onChange={e => setVerifierAddress(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x..."/>
+      </div>
+      <div>
+          <label htmlFor="topics" className="block text-xs font-medium text-slate-600 mb-1">Event Topics</label>
+          <p className="text-xs text-slate-500 mb-2">The event signature hashes to track on-chain. One per line.</p>
+          <textarea id="topics" value={topics} onChange={e => setTopics(e.target.value)} rows={3} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef..."/>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+            <label htmlFor="recipientCount" className="block text-xs font-medium text-slate-600 mb-1">Max Recipients</label>
+            <input type="number" id="recipientCount" value={recipientCount || ''} onChange={e => setRecipientCount(Number(e.target.value))} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+        </div>
+         <div>
+            <label htmlFor="maxReward" className="block text-xs font-medium text-slate-600 mb-1">Reward Per Recipient</label>
+            <input type="number" id="maxReward" value={maxReward || ''} onChange={e => setMaxReward(Number(e.target.value))} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+        </div>
+      </div>
+      {totalAmount > 0 && (
+          <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-md">
+              <p><strong>Total Amount:</strong> {totalAmount.toLocaleString()} {selectedToken?.symbol || ''}</p>
+          </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -337,6 +461,14 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-6 space-y-6">
+        <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Airdrop Type</label>
+            <div className="flex bg-slate-200 p-1 rounded-lg items-center space-x-1 max-w-min">
+                <button type="button" onClick={() => setAirdropType(AirdropType.Whitelist)} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${airdropType === AirdropType.Whitelist ? 'bg-purple-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Whitelist</button>
+                <button type="button" onClick={() => setAirdropType(AirdropType.Quest)} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${airdropType === AirdropType.Quest ? 'bg-purple-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Quest</button>
+            </div>
+        </div>
+
         <div className="space-y-4">
             <h2 className="text-base font-semibold text-slate-700">Airdrop Details</h2>
             <div>
@@ -428,20 +560,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 </div>
             </div>
         </div>
-        <div className="space-y-4">
-            <h2 className="text-base font-semibold text-slate-700">Whitelist</h2>
-            <div>
-                <label htmlFor="whitelist" className="block text-xs font-medium text-slate-600 mb-1">Recipients & Amounts (CSV)</label>
-                <p className="text-xs text-slate-500 mb-2">Enter one recipient per line in the format: <code>address,amount</code></p>
-                <textarea id="whitelist" value={whitelistCsv} onChange={e => setWhitelistCsv(e.target.value)} onBlur={handleWhitelistParse} rows={8} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x...,100&#10;0x...,250"/>
-            </div>
-            {whitelist.length > 0 && (
-                <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-md">
-                    <p><strong>Recipients:</strong> {whitelist.length}</p>
-                    <p><strong>Total Amount:</strong> {totalAmount.toLocaleString()} {selectedToken?.symbol || ''}</p>
-                </div>
-            )}
-        </div>
+
+        {airdropType === AirdropType.Whitelist ? renderWhitelistFields() : renderQuestFields()}
+
         <div className="space-y-4">
             <h2 className="text-base font-semibold text-slate-700">Schedule</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

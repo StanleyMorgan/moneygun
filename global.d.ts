@@ -1,8 +1,9 @@
 /// <reference types="react" />
 
-// FIX: Wrap global augmentations in `declare global` to comply with module-scoped type definitions.
-// This resolves the error about top-level declarations and allows TypeScript to correctly
-// recognize the augmented `NodeJS` and `JSX` namespaces across the project.
+// FIX: Wrap namespace augmentations in `declare global` and add an empty `export {}`
+// to ensure this file is treated as a module. This is the correct way to augment
+// global types like `NodeJS.ProcessEnv` and `JSX.IntrinsicElements` in a modern
+// TypeScript project.
 declare global {
   // Augment the NodeJS namespace to include environment variables for Vite.
   namespace NodeJS {
@@ -37,3 +38,5 @@ declare global {
     }
   }
 }
+
+export {};

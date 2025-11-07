@@ -36,7 +36,7 @@ const App: React.FC = () => {
 
   }, []);
 
-  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'recipientCount' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
+  const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
     if (!address) {
       alert("Please connect your wallet to create an airdrop.");
       return;
