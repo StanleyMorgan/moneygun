@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, GetLogsParameters } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -155,16 +155,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     transport: http(rpcUrl),
                 });
                 
+                const latestBlock = await client.getBlockNumber();
+                const fromBlock = latestBlock > BigInt(1000) ? latestBlock - BigInt(1000) : BigInt(0);
+
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
                 const airdropTopics = JSON.parse(airdrop.topics) as Hex[];
 
-                // Fix: Explicitly type the parameters for `getLogs` to resolve a TypeScript type inference issue.
-                // Added the required `address` property to the log parameters, which was the root cause of the error.
-                // FIX: Removed explicit GetLogsParameters type to allow TypeScript to correctly infer the type from the object literal.
                 const logParams = {
                     address: getAddress(airdrop.contract_address),
                     topics: [airdropTopics, null, paddedUserAddress],
-                    fromBlock: BigInt(0),
+                    fromBlock: fromBlock,
+                    toBlock: latestBlock,
                 };
                 const logs = await client.getLogs(logParams);
 
