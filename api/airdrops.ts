@@ -146,7 +146,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 
                 const airdrop = airdropRows[0];
                 const chain = airdrop.network === 'base' ? base : baseSepolia;
-                // Fix: Manually construct the Alchemy RPC URL since `chain.rpcUrls.alchemy` is not a reliable property.
                 const rpcUrl = `https://${airdrop.network === 'base' ? 'base-mainnet' : 'base-sepolia'}.g.alchemy.com/v2/${alchemyApiKey}`;
                 
                 const client = createPublicClient({
@@ -155,13 +154,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                // Fix: The `topics` value from the database can be a JSON string from a JSONB column.
-                // It must be parsed into an array before use. A direct cast was causing TypeScript's
-                // type inference to fail when resolving overloads for `getLogs`.
-                const airdropTopics: Hex[] = typeof airdrop.topics === 'string'
-                    ? JSON.parse(airdrop.topics)
-                    : airdrop.topics;
+                const airdropTopics: Hex[] = JSON.parse(airdrop.topics);
 
+                // FIX: Removed `event: undefined` and `events: undefined`. When fetching raw logs by `topics`,
+                // including these properties (even as undefined) can confuse TypeScript's overload resolution for `getLogs`.
+                // The correct overload is inferred when they are absent.
                 const logs = await client.getLogs({
                     topics: [airdropTopics, null, paddedUserAddress],
                     fromBlock: BigInt(0),
