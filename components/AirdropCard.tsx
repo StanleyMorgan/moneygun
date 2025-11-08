@@ -148,7 +148,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     }
 
     const { data: contractBalance, refetch: refetchBalance } = useReadContract({
-        address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
+        // Fix: To read the token balance of the airdrop contract, we must call `balanceOf`
+        // on the TOKEN contract (`tokenAddress`), passing it the AIRDROP contract's address (`contractAddress`).
+        address: airdrop.tokenAddress ? getAddress(airdrop.tokenAddress) : undefined,
         abi: erc20ABI,
         functionName: 'balanceOf',
         args: airdrop.contractAddress ? [getAddress(airdrop.contractAddress)] : undefined,
