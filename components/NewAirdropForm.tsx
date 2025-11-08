@@ -12,17 +12,29 @@ import { base, baseSepolia } from 'wagmi/chains';
 import { getVerifierAddress } from '../lib/api';
 
 // Contract Addresses
-const AIRDROP_FACTORY_ADDRESS = getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2');
-const QUEST_AIRDROP_FACTORY_ADDRESS = getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64');
+const AIRDROP_FACTORY_ADDRESSES: Record<string, `0x${string}`> = {
+  'base-sepolia': getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2'),
+  'base': getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2'), // Placeholder, likely needs a mainnet address
+  'monad-testnet': getAddress('0x347319746dc15b955eef0388e73ef2a5973d6703'),
+};
+
+const QUEST_AIRDROP_FACTORY_ADDRESSES: Record<string, `0x${string}`> = {
+  'base-sepolia': getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64'),
+  'base': getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64'), // Placeholder, likely needs a mainnet address
+  'monad-testnet': getAddress('0x24a56e0603e3f6d8458c5030d2c5ff09e3e5c451'),
+};
+
 
 const chainIdMap: Record<string, number> = {
   'base-sepolia': baseSepolia.id,
   'base': base.id,
+  'monad-testnet': 10143,
 };
 
 const SUPPORTED_NETWORKS: { id: string; name: string; iconUrl: string }[] = [
   { id: 'base-sepolia', name: 'Base Sepolia', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' },
-  { id: 'base', name: 'Base', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' }
+  { id: 'base', name: 'Base', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' },
+  { id: 'monad-testnet', name: 'Monad Testnet', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/monad/monad.svg' }
 ];
 
 const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`; decimals: number; iconUrl: string }[]> = {
@@ -33,6 +45,9 @@ const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`;
   'base': [
     { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
     { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
+  ],
+  'monad-testnet': [
+    { symbol: 'USDC', address: '0xca81450762a8163f43740dfd8b49ebafc411dda6', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
   ],
 };
 
@@ -266,7 +281,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     try {
       setStatus('creatingContract');
       createQuestContract({
-        address: QUEST_AIRDROP_FACTORY_ADDRESS,
+        address: QUEST_AIRDROP_FACTORY_ADDRESSES[network],
         abi: questAirdropFactoryABI,
         functionName: 'createQuestAirdrop',
         args: [getAddress(selectedToken!.address), address!, fetchedVerifierAddress],
@@ -297,7 +312,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   useEffect(() => {
     if (status === 'creatingContract' && airdropType === AirdropType.Whitelist && merkleRoot && address && chain && selectedToken) {
         createAirdropContract({
-            address: AIRDROP_FACTORY_ADDRESS,
+            address: AIRDROP_FACTORY_ADDRESSES[network],
             abi: airdropFactoryABI,
             functionName: 'createAirdrop',
             args: [getAddress(selectedToken.address), address],
@@ -306,7 +321,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         });
         setStatus('waitingForCreation');
     }
-  }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain]);
+  }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain, network]);
 
   // Whitelist/Quest Effect: Parse contract address from logs
   useEffect(() => {

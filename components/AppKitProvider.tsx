@@ -10,12 +10,26 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
 import type { Chain } from 'viem';
 
+// 1. Define custom Monad Testnet chain
+const monadTestnet: Chain = {
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.monad.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
+  },
+  testnet: true,
+};
+
 // 1. Define Project ID and Networks
 const projectId = process.env.REOWN_PROJECT_ID || 'd3141a65525d9b62939886a110b64d30';
 if (!projectId) {
   throw new Error('REOWN_PROJECT_ID is not defined. Please set it in your environment.');
 }
-const networks: [Chain, ...Chain[]] = [base, baseSepolia];
+const networks: [Chain, ...Chain[]] = [base, baseSepolia, monadTestnet];
 
 // 2. Create the Wagmi Adapter, which will generate the wagmiConfig
 // Fix: The adapter is created first, and it generates the config, not the other way around.

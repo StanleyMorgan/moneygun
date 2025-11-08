@@ -84,6 +84,8 @@ const getBlockExplorerUrl = (network: string | undefined, address: string | unde
             return `https://basescan.org/address/${address}`;
         case 'base-sepolia':
             return `https://sepolia.basescan.org/address/${address}`;
+        case 'monad-testnet':
+            return `https://monad-testnet.socialscan.io/address/${address}`;
         default:
             return '#';
     }
@@ -96,6 +98,8 @@ const formatNetworkName = (network: string | undefined) => {
             return 'Base';
         case 'base-sepolia':
             return 'Base Sepolia';
+        case 'monad-testnet':
+            return 'Monad Testnet';
         default:
             return network;
     }
