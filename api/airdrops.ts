@@ -68,8 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Check airdrop type first
                 const { rows: airdropTypeRows } = await sql`SELECT type FROM airdrops WHERE id = ${Number(airdropId)}`;
                 if (airdropTypeRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                const airdropType = airdropTypeRows[0].type;
 
-                if (airdropTypeRows[0].type === 'Whitelist') {
+                if (airdropType === 'Whitelist') {
                     const { rows: userEntries } = await sql`
                         SELECT amount, proof FROM whitelist_entries 
                         WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
@@ -81,10 +82,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const proof = typeof userEntry.proof === 'string' ? JSON.parse(userEntry.proof) : userEntry.proof;
 
                     return res.status(200).json({ amount: String(userEntry.amount), proof });
+                } else if (airdropType === 'Quest') {
+                    const { rows: questEntries } = await sql`
+                        SELECT status FROM quest_entries
+                        WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
+                    `;
+                    if (questEntries.length === 0) {
+                        return res.status(404).json({ message: 'User has not completed this quest yet.' });
+                    }
+                    return res.status(200).json({ status: questEntries[0].status });
                 } else {
-                    // TODO: Implement logic to get Quest status from `quest_entries` table
-                    // For now, returning a placeholder for demonstration
-                    return res.status(200).json({ status: 'pending' });
+                    return res.status(400).json({ message: 'Unknown airdrop type.' });
                 }
 
             } catch (error) {
@@ -94,17 +102,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else {
             // --- Get All Airdrops ---
             try {
-                // This query now joins with whitelist_entries to get the max reward and claimed count for each airdrop.
                 const { rows } = await sql`
                     SELECT
                         a.*,
-                        COUNT(we.claimed) FILTER (WHERE we.claimed = true) as claimed_count
+                        CASE
+                            WHEN a.type = 'Whitelist' THEN (SELECT COUNT(*) FROM whitelist_entries we WHERE we.airdrop_id = a.id AND we.claimed = true)
+                            WHEN a.type = 'Quest' THEN (SELECT COUNT(*) FROM quest_entries qe WHERE qe.airdrop_id = a.id AND qe.status = 'claimed')
+                            ELSE 0
+                        END as claimed_count
                     FROM
                         airdrops a
-                    LEFT JOIN
-                        whitelist_entries we ON a.id = we.airdrop_id AND a.type = 'Whitelist'
-                    GROUP BY
-                        a.id
                     ORDER BY
                         a.created_at DESC;
                 `;
@@ -134,16 +141,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { airdropId, userAddress } = req.body;
                 if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
 
+                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract FROM airdrops WHERE id = ${airdropId}`;
+                if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                const airdrop = airdropRows[0];
+
+                const { rows: existingEntries } = await sql`
+                    SELECT status FROM quest_entries 
+                    WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)};
+                `;
+                if (existingEntries.length > 0) {
+                    if (existingEntries[0].status === 'claimed') {
+                        return res.status(400).json({ message: 'You have already claimed this quest reward.' });
+                    }
+                     // If 'verified', skip blockchain check and re-sign.
+                    const amount = String(airdrop.max_reward);
+                    const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
+                    return res.status(200).json({ amount, signature });
+                }
+                
                 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
                 if (!alchemyApiKey) {
                     throw new Error('Alchemy API key is not configured on the server.');
                 }
-
-                // Fix: Renamed `target_contract_address` to `target_contract` to match the updated, more concise database schema.
-                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract FROM airdrops WHERE id = ${airdropId}`;
-                if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 
-                const airdrop = airdropRows[0];
                 if (!airdrop.target_contract) {
                     return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
                 }
@@ -176,9 +196,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const amount = String(airdrop.max_reward);
                 const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
 
-                // TODO: Insert a record into a `quest_entries` table to prevent re-verification.
-                // await sql`INSERT INTO quest_entries (airdrop_id, user_address, status) VALUES (${airdropId}, ${userAddress}, 'verified')`;
-
+                await sql`
+                    INSERT INTO quest_entries (airdrop_id, user_address, status) 
+                    VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified')
+                    ON CONFLICT (airdrop_id, user_address) DO NOTHING;
+                `;
+                
                 return res.status(200).json({ amount, signature });
             } catch (error) {
                  console.error('Quest verification error:', error);
@@ -188,8 +211,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         else if (action === 'updateClaim') {
              try {
                 const { airdropId, userAddress } = req.body;
-                if (!airdropId || !userAddress) return res.status(400).json({ message: 'Missing airdropId or userAddress for claim update.' });
-                await sql`UPDATE whitelist_entries SET claimed = true, claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${userAddress};`;
+                if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress for claim update.' });
+                
+                const checkedUserAddress = getAddress(userAddress);
+                const { rows: airdropRows } = await sql`SELECT type FROM airdrops WHERE id = ${airdropId}`;
+                if (airdropRows.length === 0) return res.status(404).json({ message: "Airdrop not found." });
+
+                if (airdropRows[0].type === 'Whitelist') {
+                    await sql`UPDATE whitelist_entries SET claimed = true, claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                } else if (airdropRows[0].type === 'Quest') {
+                    await sql`UPDATE quest_entries SET status = 'claimed', updated_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                }
+
                 return res.status(200).json({ message: 'Claim updated successfully.' });
             } catch (error) {
                 console.error('Claim update error:', error);
@@ -277,7 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (airdropRows.length === 0) { await client.sql`ROLLBACK`; return res.status(404).json({ message: 'Airdrop not found.' }); }
             if (getAddress(airdropRows[0].creator_address) !== getAddress(userAddress)) { await client.sql`ROLLBACK`; return res.status(403).json({ message: 'You are not authorized to delete this airdrop.' }); }
             await client.sql`DELETE FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};`;
-            // TODO: Delete from quest_entries as well
+            await client.sql`DELETE FROM quest_entries WHERE airdrop_id = ${Number(airdropId)};`;
             await client.sql`DELETE FROM airdrops WHERE id = ${Number(airdropId)};`;
             await client.sql`COMMIT`;
             return res.status(200).json({ message: 'Airdrop deleted successfully.' });

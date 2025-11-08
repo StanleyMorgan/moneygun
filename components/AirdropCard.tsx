@@ -1,7 +1,7 @@
 // Fix: Manually include global type definitions to ensure custom JSX elements are recognized.
 /// <reference path="../global.d.ts" />
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
@@ -123,6 +123,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const [questSignature, setQuestSignature] = useState<`0x${string}` | null>(null);
     const [questAmount, setQuestAmount] = useState<string | null>(null);
     const [questError, setQuestError] = useState('');
+    const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
 
 
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -179,7 +180,25 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
     const computedStatus = getComputedStatus(airdrop, claimed, total);
     const isConsideredFunded = isFunded || claimed > 0;
-    const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null);
+    const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null) || (questEligibility.status === 'error' ? questEligibility.error : null);
+    
+    const handleQuestVerify = useCallback(async () => {
+        if (!isConnected || !address) {
+            setQuestError('Please connect your wallet.');
+            return;
+        }
+        setQuestError('');
+        setQuestVerifyStatus('verifying');
+        try {
+            const { amount, signature } = await verifyQuest(airdrop.id, address);
+            setQuestAmount(amount);
+            setQuestSignature(signature);
+            setQuestVerifyStatus('verified');
+        } catch (err: any) {
+            setQuestError(err.message);
+            setQuestVerifyStatus('error');
+        }
+    }, [airdrop.id, address, isConnected]);
 
     // Whitelist eligibility check
     useEffect(() => {
@@ -203,6 +222,34 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             checkEligibility();
         }
     }, [airdrop.id, airdrop.type, address, isConnected, computedStatus, showOwnerControls]);
+
+    // Quest eligibility check
+    useEffect(() => {
+        if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Quest) {
+            const checkQuestEligibility = async () => {
+                setQuestEligibility({ status: 'checking', error: null });
+                try {
+                    const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
+                    if (response.ok) {
+                        const { status } = await response.json(); // 'verified' or 'claimed'
+                        setQuestEligibility({ status, error: null });
+                        if (status === 'verified' && !questSignature && questVerifyStatus !== 'verifying' && questVerifyStatus !== 'verified') {
+                             handleQuestVerify();
+                        }
+                    } else if (response.status === 404) {
+                        setQuestEligibility({ status: 'not_started', error: null });
+                    } else {
+                        const { message } = await response.json();
+                        throw new Error(message || 'Failed to check quest status.');
+                    }
+                } catch (err: any) {
+                    setQuestEligibility({ status: 'error', error: err.message });
+                }
+            };
+            checkQuestEligibility();
+        }
+    }, [airdrop.id, airdrop.type, address, isConnected, computedStatus, showOwnerControls, questSignature, questVerifyStatus, handleQuestVerify]);
+
 
     const handleStatusToggle = async () => {
         if (!isActualOwner || !address) return;
@@ -323,22 +370,6 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             setClaimStatus('error');
         }
     };
-
-    const handleQuestVerify = async () => {
-        setQuestError('');
-        if (!isConnected || !address) return setQuestError('Please connect your wallet.');
-        
-        setQuestVerifyStatus('verifying');
-        try {
-            const { amount, signature } = await verifyQuest(airdrop.id, address);
-            setQuestAmount(amount);
-            setQuestSignature(signature);
-            setQuestVerifyStatus('verified');
-        } catch (err: any) {
-            setQuestError(err.message);
-            setQuestVerifyStatus('error');
-        }
-    };
     
     const handleQuestClaim = async () => {
         setClaimError('');
@@ -372,21 +403,19 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             if (isClaimedSuccess && address) {
                 setClaimStatus('success');
                 refetchHasClaimed();
-                if (airdrop.type === AirdropType.Whitelist) {
-                    try {
-                        await fetch('/api/airdrops', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'updateClaim', airdropId: airdrop.id, userAddress: address }),
-                        });
-                    } catch (dbError) {
-                        console.error('[Claim] Failed to update DB:', dbError);
-                    }
+                try {
+                    await fetch('/api/airdrops', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'updateClaim', airdropId: airdrop.id, userAddress: address }),
+                    });
+                } catch (dbError) {
+                    console.error('[Claim] Failed to update DB:', dbError);
                 }
             }
         };
         updateClaimInDb();
-    }, [isClaimedSuccess, airdrop.id, airdrop.type, address, refetchHasClaimed]);
+    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed]);
 
     useEffect(() => {
         if (claimErrorHook) {
@@ -427,7 +456,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
 
     const renderClaimAction = () => {
         if (isCheckingClaimedStatus) return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-        if (hasClaimed) return <button disabled className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">Claimed</button>;
+        if (hasClaimed || questEligibility.status === 'claimed') return <button disabled className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">Claimed</button>;
 
         if (airdrop.type === AirdropType.Whitelist) {
             if (eligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking eligibility...</p>;
@@ -438,6 +467,7 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         }
 
         if (airdrop.type === AirdropType.Quest) {
+            if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
             if (questVerifyStatus === 'verified' || questSignature) {
                 return <button onClick={handleQuestClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText()}</button>;
             }
