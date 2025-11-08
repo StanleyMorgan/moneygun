@@ -446,15 +446,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700">Quest Details</h2>
       <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Verifier Address</label>
-           {fetchedVerifierAddress ? (
-            <p className="text-sm font-mono bg-slate-100 p-2 rounded-md text-slate-600 break-all">{fetchedVerifierAddress}</p>
-          ) : (
-            <p className="text-sm text-slate-500 animate-pulse">Loading from configuration...</p>
-          )}
-          <p className="text-xs text-slate-500 mt-2">The address that signs claims is automatically configured.</p>
-      </div>
-      <div>
           <label htmlFor="targetContract" className="block text-xs font-medium text-slate-600 mb-1">Target Contract Address</label>
            <p className="text-xs text-slate-500 mb-2">The contract address to monitor for quest events.</p>
           <input type="text" id="targetContract" value={targetContract} onChange={e => setTargetContract(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x..."/>
