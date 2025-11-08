@@ -3,7 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -155,15 +155,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                // Fix: Removed `events: undefined`. Explicitly setting it can confuse TypeScript's
-                // type inference for the `getLogs` parameters, causing it to reject the `topics` property.
+                // Fix: The `topics` value from the database can be a JSON string from a JSONB column.
+                // It must be parsed into an array before use. A direct cast was causing TypeScript's
+                // type inference to fail when resolving overloads for `getLogs`.
+                const airdropTopics: Hex[] = typeof airdrop.topics === 'string'
+                    ? JSON.parse(airdrop.topics)
+                    : airdrop.topics;
+
                 const logs = await client.getLogs({
-                    // Note: We don't specify a contract address, allowing to track events across any contract.
-                    // This is powerful but can be slow. For performance, a target contract address should be added to the airdrop config.
-                    // The topics array should contain the event signature hash and any indexed parameters.
-                    // We assume one of the indexed topics will be the user's address.
-                    topics: [airdrop.topics, null, paddedUserAddress], 
-                    fromBlock: BigInt(0), // In a real app, use a more recent fromBlock based on airdrop start time for performance.
+                    topics: [airdropTopics, null, paddedUserAddress],
+                    fromBlock: BigInt(0),
                 });
 
                 const isQuestCompleted = logs.length > 0;
