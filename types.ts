@@ -1,3 +1,4 @@
+// Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
 export enum AirdropType {
   Whitelist = 'Whitelist',
   Quest = 'Quest',
@@ -44,6 +45,7 @@ export interface Airdrop {
   claimedCount?: number;
   verifierAddress?: string;
   topics?: string[];
+  targetContract?: string;
 }
 
 // Detailed configuration loaded from a JSON file

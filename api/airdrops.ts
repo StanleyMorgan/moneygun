@@ -139,13 +139,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     throw new Error('Alchemy API key is not configured on the server.');
                 }
 
-                // Fix: Added `contract_address` to the query to make it available for the `getLogs` call.
-                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, contract_address FROM airdrops WHERE id = ${airdropId}`;
+                // Fix: Renamed `target_contract_address` to `target_contract` to match the updated, more concise database schema.
+                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 
                 const airdrop = airdropRows[0];
-                if (!airdrop.contract_address) {
-                    return res.status(400).json({ message: 'Airdrop contract address is missing.' });
+                if (!airdrop.target_contract) {
+                    return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
                 }
                 const chain = airdrop.network === 'base' ? base : baseSepolia;
                 const rpcUrl = `https://${airdrop.network === 'base' ? 'base-mainnet' : 'base-sepolia'}.g.alchemy.com/v2/${alchemyApiKey}`;
@@ -162,7 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const airdropTopics = JSON.parse(airdrop.topics) as Hex[];
 
                 const logParams = {
-                    address: getAddress(airdrop.contract_address),
+                    address: getAddress(airdrop.target_contract),
                     topics: [airdropTopics, null, paddedUserAddress],
                     fromBlock: fromBlock,
                     toBlock: latestBlock,
@@ -240,15 +240,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
                     }
                 } else if (type === 'Quest') {
-                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, topics } = req.body;
+                     // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
+                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topics } = req.body;
                      const verifierAddress = process.env.VERIFIER_ADDRESS;
                      if (!verifierAddress) {
                         throw new Error("Verifier address is not configured on the server.");
                      }
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics || !targetContract) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
                      const { rows } = await client.sql`
-                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, verifier_address, topics, created_at)
-                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${verifierAddress}, ${JSON.stringify(topics)}, NOW())
+                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, verifier_address, target_contract, topics, created_at)
+                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${verifierAddress}, ${targetContract}, ${JSON.stringify(topics)}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
                 } else {

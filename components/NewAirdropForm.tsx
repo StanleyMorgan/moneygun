@@ -69,6 +69,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
   
   // Quest-specific fields
+  // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
+  const [targetContract, setTargetContract] = useState('');
   const [topics, setTopics] = useState('');
   const [fetchedVerifierAddress, setFetchedVerifierAddress] = useState<`0x${string}` | null>(null);
   const [recipientCount, setRecipientCount] = useState(0);
@@ -248,6 +250,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setError('Verifier address could not be loaded. Please wait or refresh.');
       return;
     }
+    if (!targetContract || !isAddress(targetContract)) {
+      setError('Please provide a valid target contract address.');
+      return;
+    }
     if (!topics.trim()) {
       setError('Please provide at least one event topic.');
       return;
@@ -394,6 +400,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
                     recipientCount: Number(recipientCount), maxReward: Number(maxReward),
+                    targetContract: getAddress(targetContract),
                     topics: topics.split('\n').map(t => t.trim()).filter(t => t),
                 };
             }
@@ -446,6 +453,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             <p className="text-sm text-slate-500 animate-pulse">Loading from configuration...</p>
           )}
           <p className="text-xs text-slate-500 mt-2">The address that signs claims is automatically configured.</p>
+      </div>
+      <div>
+          <label htmlFor="targetContract" className="block text-xs font-medium text-slate-600 mb-1">Target Contract Address</label>
+           <p className="text-xs text-slate-500 mb-2">The contract address to monitor for quest events.</p>
+          <input type="text" id="targetContract" value={targetContract} onChange={e => setTargetContract(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x..."/>
       </div>
       <div>
           <label htmlFor="topics" className="block text-xs font-medium text-slate-600 mb-1">Event Topics</label>
