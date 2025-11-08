@@ -43,7 +43,6 @@ export interface Airdrop {
   merkleRoot?: string;
   maxReward?: number;
   claimedCount?: number;
-  verifierAddress?: string;
   topics?: string[];
   targetContract?: string;
 }
