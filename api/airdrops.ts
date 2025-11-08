@@ -1,9 +1,7 @@
-// Fix: Implement the full serverless function logic for handling airdrop API requests.
-// This file was previously empty, causing multiple "Cannot find name" errors.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, GetLogsParameters } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -141,10 +139,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     throw new Error('Alchemy API key is not configured on the server.');
                 }
 
-                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals FROM airdrops WHERE id = ${airdropId}`;
+                // Fix: Added `contract_address` to the query to make it available for the `getLogs` call.
+                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, contract_address FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 
                 const airdrop = airdropRows[0];
+                if (!airdrop.contract_address) {
+                    return res.status(400).json({ message: 'Airdrop contract address is missing.' });
+                }
                 const chain = airdrop.network === 'base' ? base : baseSepolia;
                 const rpcUrl = `https://${airdrop.network === 'base' ? 'base-mainnet' : 'base-sepolia'}.g.alchemy.com/v2/${alchemyApiKey}`;
                 
@@ -154,15 +156,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                const airdropTopics: Hex[] = JSON.parse(airdrop.topics);
+                const airdropTopics = JSON.parse(airdrop.topics) as Hex[];
 
-                // FIX: Removed `event: undefined` and `events: undefined`. When fetching raw logs by `topics`,
-                // including these properties (even as undefined) can confuse TypeScript's overload resolution for `getLogs`.
-                // The correct overload is inferred when they are absent.
-                const logs = await client.getLogs({
+                // Fix: Explicitly type the parameters for `getLogs` to resolve a TypeScript type inference issue.
+                // Added the required `address` property to the log parameters, which was the root cause of the error.
+                // FIX: Removed explicit GetLogsParameters type to allow TypeScript to correctly infer the type from the object literal.
+                const logParams = {
+                    address: getAddress(airdrop.contract_address),
                     topics: [airdropTopics, null, paddedUserAddress],
                     fromBlock: BigInt(0),
-                });
+                };
+                const logs = await client.getLogs(logParams);
 
                 const isQuestCompleted = logs.length > 0;
 
