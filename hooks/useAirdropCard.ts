@@ -1,3 +1,4 @@
+// Fix: The 'computedStatus' is now used to determine owner actions, resolving a logic bug where the "Set to Draft" button would disappear for active airdrops or incorrectly show for ended ones.
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, Chain } from 'viem';
@@ -528,11 +529,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     
     let ownerAction;
     if (showOwnerControls) {
-        if (airdrop.status === AirdropStatus.Active) {
+        if (computedStatus === AirdropStatus.InProgress || computedStatus === AirdropStatus.Planned) {
             ownerAction = { description: "Pause the airdrop by setting it back to Draft.", buttonText: isUpdatingStatus ? 'Updating...' : 'Set to Draft', buttonAction: handleStatusToggle, buttonDisabled: isUpdatingStatus, buttonClassName: 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500' };
-        } else if (isConsideredFunded) {
+        } else if (computedStatus === AirdropStatus.Draft && isConsideredFunded) {
             ownerAction = { description: "Airdrop is funded. Activate it to allow user claims.", buttonText: isUpdatingStatus ? 'Updating...' : 'Activate', buttonAction: handleStatusToggle, buttonDisabled: isUpdatingStatus, buttonClassName: 'bg-green-600 hover:bg-green-700 focus:ring-green-500' };
-        } else {
+        } else if (computedStatus === AirdropStatus.Draft && !isConsideredFunded) {
             ownerAction = {
                 // FIX: Replaced JSX with a template string to resolve syntax errors in the .ts file.
                 description: `Fund the contract with ${formatNumber(airdrop.totalAmount)} ${airdrop.tokenSymbol} to enable claims.`,
