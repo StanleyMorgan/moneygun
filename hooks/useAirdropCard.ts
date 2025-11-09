@@ -84,7 +84,7 @@ const monadTestnet: Chain = {
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { http: ['https://rpc.ankr.com/monad_testnet'] },
   },
   blockExplorers: {
     default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
