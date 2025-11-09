@@ -91,27 +91,31 @@ const monadTestnet: Chain = {
   testnet: true,
 };
 
+// Fix: Add a chainId map to allow useReadContract to target specific networks for balance checks.
+const chainIdMap: Record<string, number> = {
+  'base': base.id,
+  'base-sepolia': baseSepolia.id,
+  'monad-testnet': monadTestnet.id,
+};
+
 const chainMap: Record<string, Chain> = {
   'base': base,
   'base-sepolia': baseSepolia,
   'monad-testnet': monadTestnet,
 };
 
+const publicRpcUrls: Record<string, string> = {
+  'base': 'https://mainnet.base.org',
+  'base-sepolia': 'https://sepolia.base.org',
+  'monad-testnet': 'https://testnet-rpc.monad.xyz',
+};
+
 const getRpcUrl = (network: string): string | undefined => {
-    const alchemyApiKey = process.env.ALCHEMY_API_KEY;
-    if (!alchemyApiKey) {
-        console.warn("ALCHEMY_API_KEY is not set. Using default public RPCs.");
+    const url = publicRpcUrls[network];
+    if (!url) {
+        console.warn(`No public RPC URL configured for network: ${network}`);
     }
-    switch (network) {
-        case 'base':
-            return alchemyApiKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}` : chainMap[network]?.rpcUrls.default.http[0];
-        case 'base-sepolia':
-            return alchemyApiKey ? `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}` : chainMap[network]?.rpcUrls.default.http[0];
-        case 'monad-testnet':
-            return chainMap[network]?.rpcUrls.default.http[0];
-        default:
-            return undefined;
-    }
+    return url;
 };
 
 
@@ -145,10 +149,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
     
-    const [contractBalance, setContractBalance] = useState<bigint | null>(null);
-    const [isBalanceLoading, setIsBalanceLoading] = useState(true);
-    const [refetchCounter, setRefetchCounter] = useState(0);
-
     // Wagmi hooks
     const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
     const { isSuccess: isClaimedSuccess } = useWaitForTransactionReceipt({ hash: claimHash });
@@ -160,6 +160,18 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     
     const { data: withdrawHash, writeContract: withdraw, error: withdrawErrorHook } = useWriteContract();
     const { isSuccess: isWithdrawSuccess, isLoading: isWaitingForWithdraw } = useWaitForTransactionReceipt({ hash: withdrawHash });
+
+    // Fix: Replaced manual balance fetching with useReadContract to resolve type errors and simplify state management.
+    const { data: contractBalance, isLoading: isBalanceLoading, refetch: refetchBalance } = useReadContract({
+        address: airdrop.tokenAddress ? getAddress(airdrop.tokenAddress) : undefined,
+        abi: erc20ABI,
+        functionName: 'balanceOf',
+        args: airdrop.contractAddress ? [getAddress(airdrop.contractAddress)] : undefined,
+        chainId: airdrop.network ? chainIdMap[airdrop.network] : undefined,
+        query: {
+            enabled: viewAsOwner && !!airdrop.network && !!chainIdMap[airdrop.network],
+        },
+    });
 
     const contractReadConfig = {
         address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
@@ -181,7 +193,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const isActualOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
     const showOwnerControls = isActualOwner && viewAsOwner;
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
-    const isFunded = contractBalance !== null && contractBalance >= totalAmountInBaseUnits;
+    const isFunded = contractBalance != null && contractBalance >= totalAmountInBaseUnits;
     const claimed = contractClaimedCount !== undefined ? Number(contractClaimedCount) : airdrop.claimedCount ?? 0;
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
@@ -189,7 +201,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const isConsideredFunded = isFunded || claimed > 0;
     const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null) || (questEligibility.status === 'error' ? questEligibility.error : null);
 
-    const triggerRefetchBalance = () => setRefetchCounter(c => c + 1);
+    const triggerRefetchBalance = refetchBalance;
 
     // Handlers
     const handleQuestVerify = useCallback(async () => {
@@ -353,47 +365,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     }, [isActualOwner, airdrop.contractAddress, airdrop.type, chain, address, withdraw]);
 
     // Side Effects
-    useEffect(() => { // Independent balance fetching
-        const fetchIndependentBalance = async () => {
-            if (!airdrop.network || !airdrop.tokenAddress || !airdrop.contractAddress) {
-                setContractBalance(0n);
-                setIsBalanceLoading(false);
-                return;
-            }
-
-            setIsBalanceLoading(true);
-            try {
-                const chain = chainMap[airdrop.network];
-                const rpcUrl = getRpcUrl(airdrop.network);
-
-                if (!chain || !rpcUrl) {
-                    throw new Error(`Unsupported network: ${airdrop.network}`);
-                }
-
-                const client = createPublicClient({ chain, transport: http(rpcUrl) });
-                const balance = await client.readContract({
-                    address: getAddress(airdrop.tokenAddress),
-                    abi: erc20ABI,
-                    functionName: 'balanceOf',
-                    args: [getAddress(airdrop.contractAddress)],
-                });
-                setContractBalance(balance as bigint);
-            } catch (error) {
-                console.error(`Failed to fetch balance for airdrop ${airdrop.id} on ${airdrop.network}:`, error);
-                setContractBalance(null); // Indicates an error state
-            } finally {
-                setIsBalanceLoading(false);
-            }
-        };
-
-        if (viewAsOwner) {
-            fetchIndependentBalance();
-        } else {
-            setIsBalanceLoading(false);
-            setContractBalance(null);
-        }
-    }, [airdrop.id, airdrop.network, airdrop.tokenAddress, airdrop.contractAddress, viewAsOwner, refetchCounter]);
-    
     useEffect(() => { // Whitelist eligibility
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
             const checkEligibility = async () => {
@@ -466,7 +437,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             triggerRefetchBalance();
             refetchClaimedCount();
         }
-    }, [isFundSuccess, refetchClaimedCount]);
+    }, [isFundSuccess, refetchClaimedCount, triggerRefetchBalance]);
     
     useEffect(() => { // Handle funding errors
         const err = approveError || fundError;
@@ -527,7 +498,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 setWithdrawStatus('idle');
             }, 2500);
         }
-    }, [isWithdrawSuccess]);
+    }, [isWithdrawSuccess, triggerRefetchBalance]);
 
     useEffect(() => { // Handle withdraw error
         if (withdrawErrorHook) {
@@ -596,7 +567,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         progressPercentage,
         claimed,
         total,
-        contractBalance,
+        contractBalance: contractBalance ?? null,
         isBalanceLoading,
         isConsideredFunded,
         anyError,
