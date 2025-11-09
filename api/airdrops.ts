@@ -50,7 +50,7 @@ const monadTestnet: Chain = {
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/monad_testnet'] },
+    default: { http: [`https://monad-testnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`] },
   },
   blockExplorers: {
     default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
@@ -193,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         break;
                     case 'monad-testnet':
                         chain = monadTestnet;
-                        rpcUrl = 'https://rpc.ankr.com/monad_testnet';
+                        rpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
                     default:
                         return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
@@ -209,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 
                 const latestBlock = await client.getBlockNumber();
-                const blockRange = BigInt(99); // Monad RPC limit is a 100 block range.
+                const blockRange = BigInt(999); // Alchemy allows a larger block range.
                 const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });

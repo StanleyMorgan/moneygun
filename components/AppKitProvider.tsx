@@ -10,13 +10,18 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
 import type { Chain } from 'viem';
 
+const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+if (!alchemyApiKey) {
+  throw new Error('ALCHEMY_API_KEY is not defined. Please set it in your environment.');
+}
+
 // 1. Define custom Monad Testnet chain
 const monadTestnet: Chain = {
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/monad_testnet'] },
+    default: { http: [`https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`] },
   },
   blockExplorers: {
     default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
