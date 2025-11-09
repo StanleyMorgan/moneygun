@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { getAddress, formatUnits, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
+import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';

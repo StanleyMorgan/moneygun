@@ -1,7 +1,7 @@
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { formatUnits } from 'viem';
-import { useAirdropCard, formatDateTime, formatNetworkName, getBlockExplorerUrl } from '../hooks/useAirdropCard';
+import { useAirdropCard, formatDateTime, formatNetworkName } from '../hooks/useAirdropCard';
 import { InfoIcon } from './icons/InfoIcon';
 import { TrashIcon } from './icons/TrashIcon';
 
