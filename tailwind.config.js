@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
+    "./hooks/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
