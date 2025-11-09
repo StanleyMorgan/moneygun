@@ -48,6 +48,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         claimed,
         total,
         contractBalance,
+        isBalanceLoading,
         anyError,
         showOwnerControls,
         ownerAction,
@@ -130,7 +131,18 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                 <div><p className="text-slate-500">Total Amount</p><p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p></div>
                 <div><p className="text-slate-500">Claimed / Total</p><p className="font-medium text-slate-800">{`${claimed} / ${total}`}</p></div>
                 {viewAsOwner ? (
-                    <div><p className="text-slate-500">Contract Balance</p><p className="font-medium text-slate-800">{typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : '0'} {airdrop.tokenSymbol}</p></div>
+                    <div>
+                        <p className="text-slate-500">Contract Balance</p>
+                        <p className="font-medium text-slate-800">
+                            {isBalanceLoading ? (
+                                <span className="animate-pulse">...</span>
+                            ) : (
+                                <>
+                                    {typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : 'N/A'} {airdrop.tokenSymbol}
+                                </>
+                            )}
+                        </p>
+                    </div>
                 ) : (
                     <div><p className="text-slate-500">Reward</p><p className="font-medium text-slate-800">{airdrop.maxReward ? `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`: 'Varies'}</p></div>
                 )}

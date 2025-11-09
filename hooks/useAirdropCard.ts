@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
+import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, createPublicClient, http, Chain } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
+import { base, baseSepolia } from 'wagmi/chains';
+
 
 // --- Helper Functions (moved from component) ---
 
@@ -76,6 +78,43 @@ export const formatDateTime = (date: Date | undefined) => {
     });
 };
 
+const monadTestnet: Chain = {
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.monad.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
+  },
+  testnet: true,
+};
+
+const chainMap: Record<string, Chain> = {
+  'base': base,
+  'base-sepolia': baseSepolia,
+  'monad-testnet': monadTestnet,
+};
+
+const getRpcUrl = (network: string): string | undefined => {
+    const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+    if (!alchemyApiKey) {
+        console.warn("ALCHEMY_API_KEY is not set. Using default public RPCs.");
+    }
+    switch (network) {
+        case 'base':
+            return alchemyApiKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}` : chainMap[network]?.rpcUrls.default.http[0];
+        case 'base-sepolia':
+            return alchemyApiKey ? `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}` : chainMap[network]?.rpcUrls.default.http[0];
+        case 'monad-testnet':
+            return chainMap[network]?.rpcUrls.default.http[0];
+        default:
+            return undefined;
+    }
+};
+
+
 // --- Hook Definition ---
 
 interface UseAirdropCardProps {
@@ -105,6 +144,10 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [withdrawError, setWithdrawError] = useState('');
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
+    
+    const [contractBalance, setContractBalance] = useState<bigint | null>(null);
+    const [isBalanceLoading, setIsBalanceLoading] = useState(true);
+    const [refetchCounter, setRefetchCounter] = useState(0);
 
     // Wagmi hooks
     const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
@@ -122,14 +165,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
         abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
     };
-
-    const { data: contractBalance, refetch: refetchBalance } = useReadContract({
-        address: airdrop.tokenAddress ? getAddress(airdrop.tokenAddress) : undefined,
-        abi: erc20ABI,
-        functionName: 'balanceOf',
-        args: airdrop.contractAddress ? [getAddress(airdrop.contractAddress)] : undefined,
-    });
-
+    
     const { data: contractClaimedCount, refetch: refetchClaimedCount } = useReadContract({
         ...contractReadConfig,
         functionName: 'claimedCount',
@@ -145,13 +181,15 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const isActualOwner = isConnected && address && airdrop.creatorAddress && getAddress(address) === getAddress(airdrop.creatorAddress);
     const showOwnerControls = isActualOwner && viewAsOwner;
     const totalAmountInBaseUnits = parseUnits(String(airdrop.totalAmount), airdrop.tokenDecimals || 18);
-    const isFunded = typeof contractBalance === 'bigint' && contractBalance >= totalAmountInBaseUnits;
+    const isFunded = contractBalance !== null && contractBalance >= totalAmountInBaseUnits;
     const claimed = contractClaimedCount !== undefined ? Number(contractClaimedCount) : airdrop.claimedCount ?? 0;
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
     const computedStatus = getComputedStatus(airdrop, claimed, total);
     const isConsideredFunded = isFunded || claimed > 0;
     const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null) || (questEligibility.status === 'error' ? questEligibility.error : null);
+
+    const triggerRefetchBalance = () => setRefetchCounter(c => c + 1);
 
     // Handlers
     const handleQuestVerify = useCallback(async () => {
@@ -315,6 +353,47 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     }, [isActualOwner, airdrop.contractAddress, airdrop.type, chain, address, withdraw]);
 
     // Side Effects
+    useEffect(() => { // Independent balance fetching
+        const fetchIndependentBalance = async () => {
+            if (!airdrop.network || !airdrop.tokenAddress || !airdrop.contractAddress) {
+                setContractBalance(0n);
+                setIsBalanceLoading(false);
+                return;
+            }
+
+            setIsBalanceLoading(true);
+            try {
+                const chain = chainMap[airdrop.network];
+                const rpcUrl = getRpcUrl(airdrop.network);
+
+                if (!chain || !rpcUrl) {
+                    throw new Error(`Unsupported network: ${airdrop.network}`);
+                }
+
+                const client = createPublicClient({ chain, transport: http(rpcUrl) });
+                const balance = await client.readContract({
+                    address: getAddress(airdrop.tokenAddress),
+                    abi: erc20ABI,
+                    functionName: 'balanceOf',
+                    args: [getAddress(airdrop.contractAddress)],
+                });
+                setContractBalance(balance as bigint);
+            } catch (error) {
+                console.error(`Failed to fetch balance for airdrop ${airdrop.id} on ${airdrop.network}:`, error);
+                setContractBalance(null); // Indicates an error state
+            } finally {
+                setIsBalanceLoading(false);
+            }
+        };
+
+        if (viewAsOwner) {
+            fetchIndependentBalance();
+        } else {
+            setIsBalanceLoading(false);
+            setContractBalance(null);
+        }
+    }, [airdrop.id, airdrop.network, airdrop.tokenAddress, airdrop.contractAddress, viewAsOwner, refetchCounter]);
+    
     useEffect(() => { // Whitelist eligibility
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
             const checkEligibility = async () => {
@@ -384,10 +463,10 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     useEffect(() => { // Handle funding success
         if (isFundSuccess) {
             setFundingStatus('success');
-            refetchBalance();
+            triggerRefetchBalance();
             refetchClaimedCount();
         }
-    }, [isFundSuccess, refetchBalance, refetchClaimedCount]);
+    }, [isFundSuccess, refetchClaimedCount]);
     
     useEffect(() => { // Handle funding errors
         const err = approveError || fundError;
@@ -442,13 +521,13 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     useEffect(() => { // Handle withdraw success
         if (isWithdrawSuccess) {
             setWithdrawStatus('success');
-            refetchBalance();
+            triggerRefetchBalance();
             setTimeout(() => {
                 setIsDeleteModalOpen(false);
                 setWithdrawStatus('idle');
             }, 2500);
         }
-    }, [isWithdrawSuccess, refetchBalance]);
+    }, [isWithdrawSuccess]);
 
     useEffect(() => { // Handle withdraw error
         if (withdrawErrorHook) {
@@ -518,6 +597,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         claimed,
         total,
         contractBalance,
+        isBalanceLoading,
         isConsideredFunded,
         anyError,
         showOwnerControls,

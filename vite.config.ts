@@ -7,7 +7,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.REOWN_PROJECT_ID': JSON.stringify(env.REOWN_PROJECT_ID)
+      'process.env.REOWN_PROJECT_ID': JSON.stringify(env.REOWN_PROJECT_ID),
+      'process.env.ALCHEMY_API_KEY': JSON.stringify(env.ALCHEMY_API_KEY)
     }
   }
 })
