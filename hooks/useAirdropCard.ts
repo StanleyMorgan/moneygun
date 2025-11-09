@@ -1,5 +1,6 @@
+// Fix: Refactor independent balance fetching to use wagmi's `useReadContract` hook instead of a manual `createPublicClient` call. This resolves a TypeScript type error with `client.readContract` and provides a cleaner, more robust implementation by leveraging wagmi's built-in data fetching capabilities.
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, Chain } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
@@ -91,7 +92,6 @@ const monadTestnet: Chain = {
   testnet: true,
 };
 
-// Fix: Add a chainId map to allow useReadContract to target specific networks for balance checks.
 const chainIdMap: Record<string, number> = {
   'base': base.id,
   'base-sepolia': baseSepolia.id,
@@ -111,6 +111,7 @@ interface UseAirdropCardProps {
 
 export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdropDelete }: UseAirdropCardProps) => {
     const { address, isConnected, chain } = useAccount();
+    const { switchChainAsync } = useSwitchChain();
 
     // State management
     const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
@@ -125,7 +126,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteStatus, setDeleteStatus] = useState<'idle' | 'deleting' | 'error'>('idle');
     const [deleteError, setDeleteError] = useState('');
-    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'withdrawing' | 'waiting' | 'success' | 'error'>('idle');
+    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'switching' | 'withdrawing' | 'waiting' | 'success' | 'error'>('idle');
     const [withdrawError, setWithdrawError] = useState('');
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
@@ -142,7 +143,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const { data: withdrawHash, writeContract: withdraw, error: withdrawErrorHook } = useWriteContract();
     const { isSuccess: isWithdrawSuccess, isLoading: isWaitingForWithdraw } = useWaitForTransactionReceipt({ hash: withdrawHash });
 
-    // Fix: Replaced manual balance fetching with useReadContract to resolve type errors and simplify state management.
     const { data: contractBalance, isLoading: isBalanceLoading, refetch: refetchBalance } = useReadContract({
         address: airdrop.tokenAddress ? getAddress(airdrop.tokenAddress) : undefined,
         abi: erc20ABI,
@@ -322,28 +322,60 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         }
     }, [isActualOwner, address, airdrop.id, onAirdropDelete]);
 
-    const handleWithdraw = useCallback(() => {
+    const handleWithdraw = useCallback(async () => {
         setWithdrawError('');
-        if (!isActualOwner || !airdrop.contractAddress || !chain) {
-            setWithdrawError("Cannot withdraw. Ensure you are the owner and your wallet is connected to the correct network.");
+        if (!isActualOwner || !airdrop.contractAddress || !address) {
+            setWithdrawError("Cannot withdraw. Ensure you are the owner and your wallet is connected.");
             setWithdrawStatus('error');
             return;
         }
-        setWithdrawStatus('withdrawing');
+
+        const targetChainId = chainIdMap[airdrop.network!];
+        if (!targetChainId) {
+            setWithdrawError(`Unsupported network: ${airdrop.network}`);
+            setWithdrawStatus('error');
+            return;
+        }
+
         try {
+            // Fix: Capture the returned chain object from `switchChainAsync` to avoid stale closures and ensure the transaction is sent on the correct network.
+            // Step 1: Switch chain if necessary, and use the returned chain object to avoid stale closures.
+            let finalChain = chain;
+            if (chain?.id !== targetChainId) {
+                if (!switchChainAsync) {
+                    throw new Error("Could not switch network. Please do it manually in your wallet.");
+                }
+                setWithdrawStatus('switching');
+                finalChain = await switchChainAsync({ chainId: targetChainId });
+            }
+
+            if (!finalChain) {
+                throw new Error("Wallet is not connected to a chain, or the chain switch failed.");
+            }
+
+            // Step 2: Execute the withdrawal.
+            setWithdrawStatus('withdrawing');
             withdraw({
                 address: getAddress(airdrop.contractAddress),
                 abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
                 functionName: 'emergencyWithdraw',
                 account: address,
-                chain: chain,
+                // Fix: Added the required `chain` property to the `withdraw` call to resolve the TypeScript error.
+                chain: finalChain,
             });
         } catch (err: any) {
-            console.error('[Withdraw] Contract write error:', err);
-            setWithdrawError('An unexpected error occurred during withdrawal.');
-            setWithdrawStatus('error');
+            console.error('[Withdraw] Process error:', err);
+            // Check for user rejection of either the network switch or the transaction itself
+            const isUserRejection = err instanceof BaseError && (err.walk(e => e instanceof UserRejectedRequestError) || err.shortMessage.includes('User rejected the request'));
+            if (isUserRejection) {
+                setWithdrawStatus('idle');
+                setWithdrawError('');
+            } else {
+                setWithdrawError(err.message || 'An unexpected error occurred during withdrawal.');
+                setWithdrawStatus('error');
+            }
         }
-    }, [isActualOwner, airdrop.contractAddress, airdrop.type, chain, address, withdraw]);
+    }, [isActualOwner, airdrop, chain, address, withdraw, switchChainAsync]);
 
     // Side Effects
     useEffect(() => { // Whitelist eligibility
@@ -508,6 +540,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         switch (withdrawStatus) {
             case 'success': return 'Success!';
             case 'waiting': return 'Processing...';
+            case 'switching': return 'Switching Network...';
             case 'withdrawing': return 'Check Wallet...';
             case 'error': return 'Retry Withdrawal';
             default: return 'Withdraw Funds';
@@ -528,13 +561,12 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     
     let ownerAction;
     if (showOwnerControls) {
-        if (airdrop.status === AirdropStatus.Active) {
+        if (computedStatus === AirdropStatus.InProgress || computedStatus === AirdropStatus.Planned) {
             ownerAction = { description: "Pause the airdrop by setting it back to Draft.", buttonText: isUpdatingStatus ? 'Updating...' : 'Set to Draft', buttonAction: handleStatusToggle, buttonDisabled: isUpdatingStatus, buttonClassName: 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500' };
-        } else if (isConsideredFunded) {
+        } else if (isConsideredFunded && computedStatus === AirdropStatus.Draft) {
             ownerAction = { description: "Airdrop is funded. Activate it to allow user claims.", buttonText: isUpdatingStatus ? 'Updating...' : 'Activate', buttonAction: handleStatusToggle, buttonDisabled: isUpdatingStatus, buttonClassName: 'bg-green-600 hover:bg-green-700 focus:ring-green-500' };
-        } else {
+        } else if (!isConsideredFunded) {
             ownerAction = {
-                // FIX: Replaced JSX with a template string to resolve syntax errors in the .ts file.
                 description: `Fund the contract with ${formatNumber(airdrop.totalAmount)} ${airdrop.tokenSymbol} to enable claims.`,
                 buttonText: loadButtonText(), buttonAction: handleLoad, buttonDisabled: (fundingStatus !== 'idle' && fundingStatus !== 'error'), buttonClassName: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
             };
