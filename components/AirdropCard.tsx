@@ -138,6 +138,10 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const [deleteError, setDeleteError] = useState('');
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
 
+    // Withdrawal state
+    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'withdrawing' | 'waiting' | 'success' | 'error'>('idle');
+    const [withdrawError, setWithdrawError] = useState('');
+
     const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
     const { isSuccess: isClaimedSuccess } = useWaitForTransactionReceipt({ hash: claimHash });
     
@@ -145,6 +149,9 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
     const { data: fundHash, writeContract: fund, isPending: isFunding, error: fundError } = useWriteContract();
     const { isSuccess: isApproveSuccess, isLoading: isWaitingForApproval } = useWaitForTransactionReceipt({ hash: approveHash });
     const { isSuccess: isFundSuccess, isLoading: isWaitingForFund } = useWaitForTransactionReceipt({ hash: fundHash });
+    
+    const { data: withdrawHash, writeContract: withdraw, error: withdrawErrorHook } = useWriteContract();
+    const { isSuccess: isWithdrawSuccess, isLoading: isWaitingForWithdraw } = useWaitForTransactionReceipt({ hash: withdrawHash });
 
 
     const contractReadConfig = {
@@ -449,6 +456,61 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         }
     };
 
+    const handleWithdraw = useCallback(() => {
+        setWithdrawError('');
+        if (!isActualOwner || !airdrop.contractAddress || !chain) {
+            setWithdrawError("Cannot withdraw. Ensure you are the owner and your wallet is connected to the correct network.");
+            setWithdrawStatus('error');
+            return;
+        }
+        setWithdrawStatus('withdrawing');
+        try {
+            withdraw({
+                address: getAddress(airdrop.contractAddress),
+                abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
+                functionName: 'emergencyWithdraw',
+                account: address,
+                chain: chain,
+            });
+        } catch (err: any) {
+            console.error('[Withdraw] Contract write error:', err);
+            setWithdrawError('An unexpected error occurred during withdrawal.');
+            setWithdrawStatus('error');
+        }
+    }, [isActualOwner, airdrop.contractAddress, airdrop.type, chain, address, withdraw]);
+
+    useEffect(() => {
+        if (isWaitingForWithdraw) {
+            setWithdrawStatus('waiting');
+        }
+    }, [isWaitingForWithdraw]);
+
+    useEffect(() => {
+        if (isWithdrawSuccess) {
+            setWithdrawStatus('success');
+            refetchBalance();
+            setTimeout(() => {
+                setIsDeleteModalOpen(false);
+                setWithdrawStatus('idle');
+            }, 2500);
+        }
+    }, [isWithdrawSuccess, refetchBalance]);
+
+    useEffect(() => {
+        if (withdrawErrorHook) {
+            console.error('[Withdraw] Transaction error:', withdrawErrorHook);
+            const isUserRejection = withdrawErrorHook instanceof BaseError && !!withdrawErrorHook.walk(e => e instanceof UserRejectedRequestError);
+            if (isUserRejection) {
+                setWithdrawStatus('idle');
+                setWithdrawError('');
+            } else {
+                setWithdrawError('Transaction failed. Please try again.');
+                setWithdrawStatus('error');
+            }
+        }
+    }, [withdrawErrorHook]);
+
+
     const claimButtonText = () => {
         if (claimStatus === 'success') return 'Claimed!';
         if (claimStatus === 'waiting') return 'Processing...';
@@ -456,6 +518,16 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
         if (claimStatus === 'fetching') return 'Preparing...';
         if (claimStatus === 'error') return 'Try Again';
         return 'Claim';
+    };
+    
+    const withdrawButtonText = () => {
+        switch (withdrawStatus) {
+            case 'success': return 'Success!';
+            case 'waiting': return 'Processing...';
+            case 'withdrawing': return 'Check Wallet...';
+            case 'error': return 'Retry Withdrawal';
+            default: return 'Withdraw Funds';
+        }
     };
 
     const renderClaimAction = () => {
@@ -571,13 +643,57 @@ const AirdropCard: React.FC<AirdropCardProps> = ({ airdrop, onAirdropUpdate, vie
             {isDeleteModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
                     <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-                        <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Delete Airdrop?</h2>
-                        <p className="mt-2 text-sm text-slate-600">Are you sure you want to permanently delete the <strong className="font-medium">"{airdrop.name}"</strong> airdrop? This action cannot be undone.</p>
-                        {deleteError && <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{deleteError}</p>}
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => { setIsDeleteModalOpen(false); setDeleteError(''); setDeleteStatus('idle'); }} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50">Cancel</button>
-                            <button onClick={handleDelete} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-400 disabled:cursor-wait">{deleteStatus === 'deleting' ? 'Deleting...' : 'Delete'}</button>
-                        </div>
+                        {/* FIX: Use `typeof` check to narrow `contractBalance` from `unknown` to `bigint` before comparison. */}
+                        {typeof contractBalance === 'bigint' && contractBalance > 0n ? (
+                             <>
+                                <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Contract Has Funds</h2>
+                                <p className="mt-2 text-sm text-slate-600">
+                                    This contract still holds{' '}
+                                    <strong className="font-medium">
+                                        {formatUnits(contractBalance, airdrop.tokenDecimals || 18)} {airdrop.tokenSymbol}
+                                    </strong>.
+                                    You should withdraw these funds to your wallet before deleting.
+                                </p>
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Deleting this entry only removes it from the dashboard. It does not affect the on-chain contract.
+                                </p>
+                                
+                                {withdrawError && <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{withdrawError}</p>}
+                                
+                                {withdrawStatus === 'success' && (
+                                    <p className="mt-4 text-sm text-green-600 bg-green-50 p-3 rounded-md">
+                                        Withdrawal successful! Closing modal...
+                                    </p>
+                                )}
+
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button 
+                                        onClick={() => { setIsDeleteModalOpen(false); setWithdrawStatus('idle'); setWithdrawError(''); }} 
+                                        disabled={withdrawStatus === 'waiting' || withdrawStatus === 'withdrawing' || withdrawStatus === 'success'}
+                                        className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleWithdraw} 
+                                        disabled={withdrawStatus === 'waiting' || withdrawStatus === 'withdrawing' || withdrawStatus === 'success'}
+                                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:cursor-wait"
+                                    >
+                                        {withdrawButtonText()}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Delete Airdrop?</h2>
+                                <p className="mt-2 text-sm text-slate-600">Are you sure you want to permanently delete the <strong className="font-medium">"{airdrop.name}"</strong> airdrop? This action cannot be undone.</p>
+                                {deleteError && <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{deleteError}</p>}
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button onClick={() => { setIsDeleteModalOpen(false); setDeleteError(''); setDeleteStatus('idle'); }} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50">Cancel</button>
+                                    <button onClick={handleDelete} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-400 disabled:cursor-wait">{deleteStatus === 'deleting' ? 'Deleting...' : 'Delete'}</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

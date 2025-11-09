@@ -1,7 +1,11 @@
 // FIX: Converted to a module using `declare global` to provide robust, project-wide
 // type augmentation for custom JSX elements. This is generally more reliable than
 // relying on ambient script file inclusion.
-import 'react';
+
+// FIX: Changed from `import 'react'` to `/// <reference types="react" />` to make this an ambient declaration file.
+// This is necessary because `/// <reference path="..." />`, used in files like `Header.tsx`, is ignored for modules.
+// This change ensures the custom JSX element types are correctly included in the compilation.
+/// <reference types="react" />
 
 declare global {
   // Augment the NodeJS namespace to include environment variables for Vite.
@@ -36,11 +40,13 @@ declare global {
         label: string;
         // FIX: Made 'loadingLabel' property required to match the base type from @reown/appkit.
         loadingLabel: string;
-        namespace?: 'eip155' | 'solana' | 'bip122';
+        // FIX: Made 'namespace' property required to match the base type from @reown/appkit.
+        namespace: 'eip155' | 'solana' | 'bip122';
       };
     }
   }
 }
 
-// Ensure this file is treated as a module.
+// FIX: Added `export {}` to ensure this file is treated as a module.
+// `declare global` can only be used in modules.
 export {};

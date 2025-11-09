@@ -1,7 +1,7 @@
 {
   "name": "moneygun",
   "private": true,
-  "version": "0.0.004",
+  "version": "0.0.006",
   "type": "module",
   "scripts": {
     "dev": "vite",
