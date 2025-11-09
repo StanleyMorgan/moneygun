@@ -50,7 +50,7 @@ const monadTestnet: Chain = {
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { http: ['https://rpc.ankr.com/monad_testnet'] },
   },
   blockExplorers: {
     default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
@@ -193,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         break;
                     case 'monad-testnet':
                         chain = monadTestnet;
-                        rpcUrl = 'https://testnet-rpc.monad.xyz';
+                        rpcUrl = 'https://rpc.ankr.com/monad_testnet';
                         break;
                     default:
                         return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
@@ -209,7 +209,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 
                 const latestBlock = await client.getBlockNumber();
-                const fromBlock = latestBlock > BigInt(1000) ? latestBlock - BigInt(1000) : BigInt(0);
+                const blockRange = BigInt(99); // Monad RPC limit is a 100 block range.
+                const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
                 const rawTopics = airdrop.topics;
