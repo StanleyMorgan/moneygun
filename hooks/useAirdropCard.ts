@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, createPublicClient, http, Chain } from 'viem';
+import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, Chain } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
@@ -98,25 +98,6 @@ const chainIdMap: Record<string, number> = {
   'monad-testnet': monadTestnet.id,
 };
 
-const chainMap: Record<string, Chain> = {
-  'base': base,
-  'base-sepolia': baseSepolia,
-  'monad-testnet': monadTestnet,
-};
-
-const publicRpcUrls: Record<string, string> = {
-  'base': 'https://mainnet.base.org',
-  'base-sepolia': 'https://sepolia.base.org',
-  'monad-testnet': 'https://testnet-rpc.monad.xyz',
-};
-
-const getRpcUrl = (network: string): string | undefined => {
-    const url = publicRpcUrls[network];
-    if (!url) {
-        console.warn(`No public RPC URL configured for network: ${network}`);
-    }
-    return url;
-};
 
 
 // --- Hook Definition ---
