@@ -1,6 +1,3 @@
-// Fix: Manually include global type definitions to ensure custom JSX elements are recognized.
-/// <reference path="../global.d.ts" />
-
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
