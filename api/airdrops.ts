@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -44,6 +44,19 @@ const signQuestData = async (userAddress: string, questId: number, amount: strin
 
     return signature;
 }
+
+const monadTestnet: Chain = {
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.monad.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
+  },
+  testnet: true,
+};
 
 
 // Vercel Serverless Function Handler
@@ -161,16 +174,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json({ amount, signature });
                 }
                 
+                let chain: Chain;
+                let rpcUrl: string;
+
                 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
                 if (!alchemyApiKey) {
                     throw new Error('Alchemy API key is not configured on the server.');
+                }
+
+                switch (airdrop.network) {
+                    case 'base':
+                        chain = base;
+                        rpcUrl = `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'base-sepolia':
+                        chain = baseSepolia;
+                        rpcUrl = `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'monad-testnet':
+                        chain = monadTestnet;
+                        rpcUrl = 'https://testnet-rpc.monad.xyz';
+                        break;
+                    default:
+                        return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
                 }
                 
                 if (!airdrop.target_contract) {
                     return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
                 }
-                const chain = airdrop.network === 'base' ? base : baseSepolia;
-                const rpcUrl = `https://${airdrop.network === 'base' ? 'base-mainnet' : 'base-sepolia'}.g.alchemy.com/v2/${alchemyApiKey}`;
                 
                 const client = createPublicClient({
                     chain: chain,
@@ -181,7 +212,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const fromBlock = latestBlock > BigInt(1000) ? latestBlock - BigInt(1000) : BigInt(0);
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                const airdropTopics = JSON.parse(airdrop.topics) as Hex[];
+                const rawTopics = airdrop.topics;
+                const airdropTopics = (typeof rawTopics === 'string' ? JSON.parse(rawTopics) : rawTopics) as Hex[];
                 const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
 
                 const dynamicTopics: (Hex | null)[] = [airdropTopics[0]];
