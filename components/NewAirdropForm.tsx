@@ -86,7 +86,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   // Quest-specific fields
   // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
   const [targetContract, setTargetContract] = useState('');
-  const [topics, setTopics] = useState('');
+  const [topic0, setTopic0] = useState('');
+  const [userTopicIndex, setUserTopicIndex] = useState<1 | 2 | 3>(2);
   const [fetchedVerifierAddress, setFetchedVerifierAddress] = useState<`0x${string}` | null>(null);
   const [recipientCount, setRecipientCount] = useState(0);
   const [maxReward, setMaxReward] = useState(0);
@@ -269,8 +270,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setError('Please provide a valid target contract address.');
       return;
     }
-    if (!topics.trim()) {
-      setError('Please provide at least one event topic.');
+    if (!topic0.trim()) {
+      setError('Please provide the event signature.');
       return;
     }
     if (recipientCount <= 0 || maxReward <= 0) {
@@ -416,7 +417,8 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     contractAddress: newAirdropAddress,
                     recipientCount: Number(recipientCount), maxReward: Number(maxReward),
                     targetContract: getAddress(targetContract),
-                    topics: topics.split('\n').map(t => t.trim()).filter(t => t),
+                    topics: [topic0.trim()],
+                    userTopicIndex: userTopicIndex,
                 };
             }
 
@@ -466,9 +468,30 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
           <input type="text" id="targetContract" value={targetContract} onChange={e => setTargetContract(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0x..."/>
       </div>
       <div>
-          <label htmlFor="topics" className="block text-xs font-medium text-slate-600 mb-1">Event Topics</label>
-          <p className="text-xs text-slate-500 mb-2">The event signature hashes to track on-chain. One per line.</p>
-          <textarea id="topics" value={topics} onChange={e => setTopics(e.target.value)} rows={3} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef..."/>
+          <label htmlFor="topic0" className="block text-xs font-medium text-slate-600 mb-1">Event Signature (topic0)</label>
+          <p className="text-xs text-slate-500 mb-2">The event signature hash to track on-chain.</p>
+          <input type="text" id="topic0" value={topic0} onChange={e => setTopic0(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"/>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-slate-600 mb-1">User Address Location</label>
+        <p className="text-xs text-slate-500 mb-2">In which topic is the user's indexed address located?</p>
+        <div className="flex flex-wrap gap-2 mt-2">
+            {( [1, 2, 3] as const ).map(index => (
+                <button
+                    type="button"
+                    key={index}
+                    onClick={() => setUserTopicIndex(index)}
+                    aria-pressed={userTopicIndex === index}
+                    className={`px-3 py-1.5 border rounded-lg text-sm font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                        userTopicIndex === index
+                            ? 'border-purple-600 bg-purple-50 text-slate-800'
+                            : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                    }`}
+                >
+                    Topic {index}
+                </button>
+            ))}
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

@@ -37,6 +37,7 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
     totalAmount: Number(item.totalAmount), // total_amount is NUMERIC in DB
     maxReward: item.maxReward ? Number(item.maxReward) : undefined,
     claimedCount: item.claimedCount ? Number(item.claimedCount) : 0,
+    userTopicIndex: item.userTopicIndex ? Number(item.userTopicIndex) : undefined,
     createdAt: new Date(item.createdAt),
     startTime: item.startTime ? new Date(item.startTime) : undefined,
     endTime: item.endTime ? new Date(item.endTime) : undefined,
@@ -83,6 +84,7 @@ export const createAirdrop = async (airdropData: AirdropCreationPayload): Promis
     totalAmount: Number(camelCaseData.totalAmount),
     maxReward: camelCaseData.maxReward ? Number(camelCaseData.maxReward) : undefined,
     claimedCount: camelCaseData.claimedCount ? Number(camelCaseData.claimedCount) : 0,
+    userTopicIndex: camelCaseData.userTopicIndex ? Number(camelCaseData.userTopicIndex) : undefined,
     createdAt: new Date(camelCaseData.createdAt),
     startTime: camelCaseData.startTime ? new Date(camelCaseData.startTime) : undefined,
     endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,

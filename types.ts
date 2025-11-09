@@ -45,6 +45,7 @@ export interface Airdrop {
   claimedCount?: number;
   topics?: string[];
   targetContract?: string;
+  userTopicIndex?: number;
 }
 
 // Detailed configuration loaded from a JSON file

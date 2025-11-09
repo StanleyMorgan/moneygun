@@ -34,7 +34,8 @@ declare global {
         // from the @reown/appkit library, resolving the extension incompatibility error.
         size: 'md' | 'sm';
         label: string;
-        loadingLabel?: string;
+        // FIX: Made 'loadingLabel' property required to match the base type from @reown/appkit.
+        loadingLabel: string;
         namespace?: 'eip155' | 'solana' | 'bip122';
       };
     }

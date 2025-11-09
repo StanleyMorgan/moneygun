@@ -7,8 +7,10 @@ import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
 
-// Fix: Add a wrapper for viem's keccak256 to return a Buffer, which is expected by `merkletreejs`.
-const keccak256 = (data: Buffer): Buffer => Buffer.from(viemKeccak256(data, 'bytes'));
+// FIX: The call to viemKeccak256 was requesting 'bytes' which returns a Uint8Array, causing a type mismatch with Buffer.from which expected a string for 'hex' encoding. By removing the 'bytes' argument, viemKeccak256 defaults to returning a hex string, which is then correctly processed.
+// Fix: Correctly convert the hex string from viem's keccak256 (e.g., "0x...") to a Buffer
+// by removing the "0x" prefix and specifying 'hex' encoding. This is required by `merkletreejs`.
+const keccak256 = (data: Buffer): Buffer => Buffer.from(viemKeccak256(data).slice(2), 'hex');
 
 const createLeafBuffer = (address: string, amount: bigint): Buffer => {
     return Buffer.concat([
@@ -141,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { airdropId, userAddress } = req.body;
                 if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
 
-                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract FROM airdrops WHERE id = ${airdropId}`;
+                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 const airdrop = airdropRows[0];
 
@@ -180,10 +182,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
                 const airdropTopics = JSON.parse(airdrop.topics) as Hex[];
+                const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
+
+                const dynamicTopics: (Hex | null)[] = [airdropTopics[0]];
+                for (let i = 1; i < userTopicIndex; i++) {
+                    dynamicTopics.push(null);
+                }
+                dynamicTopics.push(paddedUserAddress);
 
                 const logParams = {
                     address: getAddress(airdrop.target_contract),
-                    topics: [airdropTopics, null, paddedUserAddress],
+                    topics: dynamicTopics,
                     fromBlock: fromBlock,
                     toBlock: latestBlock,
                 };
@@ -274,15 +283,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 } else if (type === 'Quest') {
                      // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
-                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topics } = req.body;
+                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topics, userTopicIndex } = req.body;
                      const verifierAddress = process.env.VERIFIER_ADDRESS;
                      if (!verifierAddress) {
                         throw new Error("Verifier address is not configured on the server.");
                      }
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics || !targetContract) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics || !targetContract || !userTopicIndex) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
                      const { rows } = await client.sql`
-                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topics, created_at)
-                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${JSON.stringify(topics)}, NOW())
+                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topics, user_topic_index, created_at)
+                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${JSON.stringify(topics)}, ${userTopicIndex}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
                 } else {

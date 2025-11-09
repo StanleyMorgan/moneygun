@@ -21,7 +21,8 @@ const Header: React.FC = () => {
             {isConnected ? (
                 // FIX: Added the required 'size' property to appkit-button to align with updated type definitions.
                 // FIX: Added the required 'disabled' property to align with the updated type definition.
-                <appkit-button balance="hide" label="" size="md" disabled={false} />
+                // FIX: Added the required 'loadingLabel' property to align with the updated type definition.
+                <appkit-button balance="hide" label="" size="md" disabled={false} loadingLabel="" />
             ) : (
                 <appkit-connect-button label="Connect" />
             )}
