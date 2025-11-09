@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Airdrop, AirdropStatus } from '../types';
-import AirdropCard, { getComputedStatus } from './AirdropCard';
+import AirdropCard from './AirdropCard';
+import { getComputedStatus } from '../hooks/useAirdropCard';
 import { PlusIcon } from './icons/PlusIcon';
 import { getAddress } from 'viem';
 
