@@ -121,7 +121,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [questAmount, setQuestAmount] = useState<string | null>(null);
     const [questError, setQuestError] = useState('');
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-    const [fundingStatus, setFundingStatus] = useState<'idle' | 'approving' | 'funding' | 'success' | 'error'>('idle');
+    const [fundingStatus, setFundingStatus] = useState<'idle' | 'switching' | 'approving' | 'funding' | 'success' | 'error'>('idle');
     const [fundingError, setFundingError] = useState('');
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteStatus, setDeleteStatus] = useState<'idle' | 'deleting' | 'error'>('idle');
@@ -230,11 +230,33 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     
     const handleLoad = useCallback(async () => {
         setFundingError('');
-        if (!isConnected || !address || !chain || !airdrop.contractAddress || !airdrop.tokenAddress) {
+        if (!isConnected || !address || !airdrop.contractAddress || !airdrop.tokenAddress || !airdrop.network) {
             setFundingError('Wallet not connected or contract details missing.');
+            setFundingStatus('error');
             return;
         }
+
+        const targetChainId = chainIdMap[airdrop.network];
+        if (!targetChainId) {
+            setFundingError(`Unsupported network: ${airdrop.network}`);
+            setFundingStatus('error');
+            return;
+        }
+
         try {
+            let finalChain = chain;
+            if (chain?.id !== targetChainId) {
+                if (!switchChainAsync) {
+                    throw new Error("Could not switch network. Please do it manually in your wallet.");
+                }
+                setFundingStatus('switching');
+                finalChain = await switchChainAsync({ chainId: targetChainId });
+            }
+
+            if (!finalChain) {
+                throw new Error("Wallet is not connected to a chain, or the chain switch failed.");
+            }
+
             setFundingStatus('approving');
             approve({
                 address: getAddress(airdrop.tokenAddress),
@@ -242,14 +264,21 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 functionName: 'approve',
                 args: [getAddress(airdrop.contractAddress), totalAmountInBaseUnits],
                 account: address,
-                chain: chain,
+                chain: finalChain,
             });
         } catch (err: any) {
-            console.error('[Funding] Contract write error:', err);
-            setFundingError('An unexpected error occurred during approval.');
-            setFundingStatus('error');
+            console.error('[Load] Process error:', err);
+            const isUserRejection = err instanceof BaseError && (err.walk(e => e instanceof UserRejectedRequestError) || err.shortMessage.includes('User rejected the request'));
+            if (isUserRejection) {
+                setFundingStatus('idle');
+                setFundingError('');
+            } else {
+                setFundingError(err.message || 'An unexpected error occurred during approval.');
+                setFundingStatus('error');
+            }
         }
-    }, [isConnected, address, chain, airdrop.contractAddress, airdrop.tokenAddress, totalAmountInBaseUnits, approve]);
+    }, [isConnected, address, chain, airdrop.contractAddress, airdrop.tokenAddress, airdrop.network, totalAmountInBaseUnits, approve, switchChainAsync]);
+
 
     const handleWhitelistClaim = useCallback(async () => {
         setClaimError('');
@@ -550,6 +579,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const loadButtonText = () => {
         if (fundingStatus === 'success') return 'Funded!';
         if (fundingStatus === 'error') return 'Retry Load';
+        if (fundingStatus === 'switching') return 'Switching Network...';
         if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
         if (isWaitingForApproval) return 'Approving...';
         if (isFunding || fundingStatus === 'funding') return 'Check Wallet to Fund...';
