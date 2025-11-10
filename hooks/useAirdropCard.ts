@@ -117,6 +117,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [withdrawError, setWithdrawError] = useState('');
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     
     // Wagmi hooks
     const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
@@ -395,6 +396,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         }
     }, [isActualOwner, airdrop, chain, address, withdraw, switchChainAsync]);
 
+    const closeSuccessModal = useCallback(() => {
+        setIsSuccessModalOpen(false);
+        setClaimStatus('idle');
+    }, []);
+
     // Side Effects
     useEffect(() => { // Whitelist eligibility
         if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Whitelist) {
@@ -495,6 +501,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         const updateAndRefetch = async () => {
             if (isClaimedSuccess && address) {
                 setClaimStatus('success');
+                setIsSuccessModalOpen(true);
                 // Refetch all relevant on-chain data after a successful claim
                 refetchHasClaimed();
                 refetchClaimedCount();
@@ -675,6 +682,9 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         withdrawStatus,
         withdrawError,
         withdrawButtonText: withdrawButtonText(),
+
+        // Success Modal
+        isSuccessModalOpen,
         
         // Handlers
         handleClaim,
@@ -689,5 +699,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             setWithdrawError('');
             setWithdrawStatus('idle');
         },
+        closeSuccessModal,
     };
 };

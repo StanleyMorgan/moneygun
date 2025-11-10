@@ -5,6 +5,7 @@ import { useAirdropCard, formatDateTime, formatNetworkName } from '../hooks/useA
 import { InfoIcon } from './icons/InfoIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { ArrowUpRightIcon } from './icons/ArrowUpRightIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
 
 const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
   const statusClasses: Record<AirdropStatus, string> = {
@@ -68,12 +69,14 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         withdrawButtonText,
         questButtonText,
         isQuestButtonDisabled,
+        isSuccessModalOpen,
         handleClaim,
         handleQuestVerify,
         handleDelete,
         handleWithdraw,
         openDeleteModal,
         closeDeleteModal,
+        closeSuccessModal,
     } = useAirdropCard(props);
     
     const { airdrop, viewAsOwner } = props;
@@ -186,6 +189,37 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                 </div>
                 {anyError && <p className="text-red-600 text-xs mt-2 text-center w-full">{anyError}</p>}
             </div>
+            
+            {isSuccessModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="success-modal-title">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+                        <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                        <h2 id="success-modal-title" className="text-xl font-semibold text-slate-800">Congratulations!</h2>
+                        <p className="mt-2 text-sm text-slate-600">
+                            You have successfully claimed your airdrop.
+                        </p>
+                        
+                        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button 
+                                onClick={closeSuccessModal} 
+                                className="w-full px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                            >
+                                Close
+                            </button>
+                            <a 
+                                href="https://farcaster.xyz/miniapps/_a3NifiAxJcF/moneygun"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={closeSuccessModal}
+                                className="w-full px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center justify-center"
+                            >
+                               Share
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isDeleteModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
                     <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
