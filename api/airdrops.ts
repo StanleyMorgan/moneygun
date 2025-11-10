@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, VercelPoolClient } from '@vercel/postgres';
+import { sql } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { keccak256, parseUnits, getAddress, isAddress, pad, toHex, Hex, createWalletClient, http, WalletClient, Account } from 'viem';
+import { keccak256, parseUnits, getAddress, isAddress, pad, toHex, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
 import { Airdrop, AirdropStatus, AirdropType, WhitelistEntry } from '../types';
@@ -25,33 +25,7 @@ const chainMap = {
 };
 
 
-// --- Type Definitions ---
-type AirdropFromDB = Omit<Airdrop, 'createdAt' | 'startTime' | 'endTime'> & {
-    created_at: string;
-    start_time?: string;
-    end_time?: string;
-    [key: string]: any;
-};
-
-
 // --- Helper Functions ---
-// FIX: Removed the explicit `WalletClient` return type to allow TypeScript to infer the more specific
-// type from `createWalletClient`. This resolves a "Type instantiation is excessively deep and possibly infinite" error
-// that can occur with complex generic types in libraries like viem.
-// Also added a null check for `account` for runtime safety.
-const getWalletClient = (network: string) => {
-    const chain = chainMap[network as keyof typeof chainMap];
-    if (!chain) throw new Error(`Unsupported network: ${network}`);
-    if (!account) {
-        throw new Error('Verifier account not configured on server.');
-    }
-    return createWalletClient({
-        account,
-        chain,
-        transport: http(),
-    });
-}
-
 const toCamelCase = (s: string) => s.replace(/_([a-z])/g, g => g[1].toUpperCase());
 
 const convertObjectKeysToCamelCase = (obj: any): any => {
@@ -92,11 +66,11 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
         
         const client = await sql.connect();
         try {
-            const airdropResult = await client.query('SELECT type, token_decimals, contract_address FROM airdrops WHERE id = $1', [airdropId]);
+            const airdropResult = await client.query('SELECT type, token_decimals FROM airdrops WHERE id = $1', [airdropId]);
             if (airdropResult.rows.length === 0) {
                 return res.status(404).json({ message: 'Airdrop not found.' });
             }
-            const { type, token_decimals, contract_address } = airdropResult.rows[0];
+            const { type, token_decimals } = airdropResult.rows[0];
 
             if (type === AirdropType.Whitelist) {
                 const allEntriesResult = await client.query('SELECT address, amount FROM whitelist WHERE airdrop_id = $1', [airdropId]);

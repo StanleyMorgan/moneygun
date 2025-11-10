@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { Airdrop, AirdropType, WhitelistEntry, Network, Token } from '../types';
@@ -149,7 +148,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         }
         setErrors(newErrors);
       },
-      error: (error) => {
+      // FIX: The type of the error parameter has been changed from `ParseError` to `Error` to match the expected
+      // function signature from the type definitions, resolving a TypeScript compiler error.
+      error: (error: Error) => {
         newErrors.whitelist = `CSV parsing error: ${error.message}`;
         setErrors(newErrors);
       }
