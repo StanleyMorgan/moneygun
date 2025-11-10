@@ -31,6 +31,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
+  const [action, setAction] = useState('');
   
   const [networks, setNetworks] = useState<Network[]>([]);
   const [network, setNetwork] = useState('');
@@ -245,6 +246,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setError('Description cannot exceed 140 characters.');
       return false;
     }
+    if (action && !action.startsWith('https://farcaster.xyz/') && !action.startsWith('https://base.app/')) {
+      setError('Action URL must be a valid farcaster.xyz or base.app link.');
+      return false;
+    }
     return true;
   };
 
@@ -413,7 +418,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
             if (airdropType === AirdropType.Whitelist) {
                 payload = {
-                    name, description, image, type: AirdropType.Whitelist,
+                    name, description, image, action, type: AirdropType.Whitelist,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
                     startTime: new Date(startTime), endTime: new Date(endTime),
@@ -422,7 +427,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 };
             } else { // Quest
                 payload = {
-                    name, description, image, type: AirdropType.Quest,
+                    name, description, image, action, type: AirdropType.Quest,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
                     startTime: new Date(startTime), endTime: new Date(endTime),
@@ -443,7 +448,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         }
     };
     saveAirdrop();
-  }, [status, newAirdropAddress, selectedToken, airdropType]);
+  }, [status, newAirdropAddress, selectedToken, airdropType, action, description, endTime, image, maxReward, merkleRoot, name, network, onAddAirdrop, recipientCount, startTime, targetContract, topic0, totalAmount, userTopicIndex, whitelist]);
 
 
   useEffect(() => {
@@ -563,6 +568,18 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 />
               </div>
               <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG or image file. If blank, a default icon is used.</p>
+            </div>
+             <div>
+              <label htmlFor="action" className="block text-xs font-medium text-slate-600 mb-1">Action URL (Optional)</label>
+                <input
+                    type="url"
+                    id="action"
+                    value={action}
+                    onChange={e => setAction(e.target.value)}
+                    placeholder="https://farcaster.xyz/..."
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">Must be a link to <code>farcaster.xyz</code> or <code>base.app</code>.</p>
             </div>
             <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Airdrop Type</label>
