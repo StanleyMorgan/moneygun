@@ -74,17 +74,23 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   const selectedToken = tokens.find(t => t.contractAddress === selectedTokenAddress);
   const selectedNetwork = networks.find(n => n.networkKey === network);
-
+  
+  // Effect 1: Fetch networks and set initial state ONCE.
   useEffect(() => {
-    const fetchNetworks = async () => {
+    const fetchAndSetInitialNetwork = async () => {
       try {
         const nets = await api.getNetworks();
         setNetworks(nets);
         if (nets.length > 0) {
-          const defaultNetwork = nets[0].networkKey;
-          setNetwork(defaultNetwork);
-          if (isConnected && chain?.id !== nets[0].chainId && switchChain) {
-            switchChain({ chainId: nets[0].chainId });
+          // Check if the currently connected chain is one of the supported ones
+          const connectedNetwork = isConnected && chain ? nets.find(n => n.chainId === chain.id) : undefined;
+          
+          if (connectedNetwork) {
+            // If wallet is connected to a supported network, sync the form to it.
+            setNetwork(connectedNetwork.networkKey);
+          } else {
+            // Otherwise, default to the first network in the list (Base).
+            setNetwork(nets[0].networkKey);
           }
         }
       } catch (error) {
@@ -92,8 +98,19 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         setError("Could not load network configurations. Please refresh.");
       }
     };
-    fetchNetworks();
-  }, [isConnected, chain, switchChain]);
+    fetchAndSetInitialNetwork();
+  }, []); // <-- Empty dependency array means this runs only once on mount.
+
+  // Effect 2: Sync form state when the wallet's chain changes.
+  useEffect(() => {
+    if (isConnected && chain && networks.length > 0) {
+        const currentNetworkInWallet = networks.find(n => n.chainId === chain.id);
+        if (currentNetworkInWallet && currentNetworkInWallet.networkKey !== network) {
+            setNetwork(currentNetworkInWallet.networkKey);
+        }
+    }
+  }, [chain, isConnected, networks]);
+
 
   useEffect(() => {
     if (!network) {
