@@ -45,19 +45,6 @@ const signQuestData = async (userAddress: string, questId: number, amount: strin
     return signature;
 }
 
-const monadTestnet: Chain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-  rpcUrls: {
-    default: { http: [`https://monad-testnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`] },
-  },
-  blockExplorers: {
-    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
-  },
-  testnet: true,
-};
-
 
 // Vercel Serverless Function Handler
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -159,6 +146,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { rows: airdropRows } = await sql`SELECT network, topic0, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 const airdrop = airdropRows[0];
+                
+                const { rows: networkRows } = await sql`SELECT * FROM networks WHERE network_key = ${airdrop.network}`;
+                if (networkRows.length === 0) return res.status(400).json({ message: `Network configuration for '${airdrop.network}' not found.` });
+                const network = networkRows[0];
 
                 const { rows: existingEntries } = await sql`
                     SELECT status FROM quest_entries 
@@ -174,82 +165,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json({ amount, signature });
                 }
                 
-                let logs;
                 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
-                if (!alchemyApiKey) {
-                    throw new Error('Alchemy API key is not configured on the server.');
-                }
+                if (!alchemyApiKey) throw new Error('Alchemy API key is not configured on the server.');
+                if (!airdrop.target_contract) return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
+                if (!airdrop.topic0) return res.status(400).json({ message: 'Airdrop is missing event topic configuration.' });
 
-                if (!airdrop.target_contract) {
-                    return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
-                }
-
-                const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                const topic0 = airdrop.topic0;
-                if (!topic0) {
-                    return res.status(400).json({ message: 'Airdrop is missing event topic configuration.' });
-                }
-                const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
-                
-                const dynamicTopics: LogTopic[] = [topic0 as Hex];
-                for (let i = 1; i < userTopicIndex; i++) {
-                    dynamicTopics.push(null);
-                }
-                dynamicTopics.push(paddedUserAddress);
-                const blockRange = BigInt(999);
+                let chain: Chain;
+                let alchemyRpcUrl: string;
 
                 switch (airdrop.network) {
                     case 'base':
-                    case 'base-sepolia': {
-                        const chain = airdrop.network === 'base' ? base : baseSepolia;
-                        
-                        const alchemyRpcUrl = airdrop.network === 'base'
-                            ? `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`
-                            : `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
-                        const publicRpcUrl = chain.rpcUrls.default.http[0];
-
-                        const alchemyClient = createPublicClient({ chain, transport: http(alchemyRpcUrl) });
-                        const publicClient = createPublicClient({ chain, transport: http(publicRpcUrl) });
-                        
-                        const latestBlock = await publicClient.getBlockNumber();
-                        const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
-                        
-                        // FIX: By creating a variable for the parameters object first, we avoid TypeScript's "excess property checking" on object literals, which can fail with complex union types like in `getLogs`. This helps the compiler correctly match the overload that accepts the `topics` property.
-                        const getLogsParams = {
-                            address: getAddress(airdrop.target_contract),
-                            topics: dynamicTopics,
-                            fromBlock: fromBlock,
-                            toBlock: latestBlock,
-                        };
-                        logs = await alchemyClient.getLogs(getLogsParams);
+                        chain = base;
+                        alchemyRpcUrl = `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
-                    }
-                    case 'monad-testnet': {
-                        const alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
-                        const publicRpcUrl = 'https://rpc.ankr.com/monad_testnet';
-
-                        const alchemyClient = createPublicClient({ chain: monadTestnet, transport: http(alchemyRpcUrl) });
-                        const publicClient = createPublicClient({ chain: monadTestnet, transport: http(publicRpcUrl) });
-
-                        // Use public client for block number to save Alchemy credits
-                        const latestBlock = await publicClient.getBlockNumber();
-                        const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
-
-                        // Use Alchemy client for the expensive getLogs call
-                        // FIX: By creating a variable for the parameters object first, we avoid TypeScript's "excess property checking" on object literals, which can fail with complex union types like in `getLogs`. This helps the compiler correctly match the overload that accepts the `topics` property.
-                        const getLogsParams = {
-                            address: getAddress(airdrop.target_contract),
-                            topics: dynamicTopics,
-                            fromBlock: fromBlock,
-                            toBlock: latestBlock,
-                        };
-                        logs = await alchemyClient.getLogs(getLogsParams);
+                    case 'base-sepolia':
+                        chain = baseSepolia;
+                        alchemyRpcUrl = `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
-                    }
+                    case 'monad-testnet':
+                        chain = {
+                            id: network.chain_id,
+                            name: network.name,
+                            nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+                            rpcUrls: { default: { http: [network.rpc_url_public] } },
+                            testnet: true,
+                        };
+                        alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
                     default:
                         return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
                 }
 
+                const publicClient = createPublicClient({ chain, transport: http(network.rpc_url_public) });
+                const alchemyClient = createPublicClient({ chain, transport: http(alchemyRpcUrl) });
+
+                const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
+                const userTopicIndex = airdrop.user_topic_index || 2;
+                const dynamicTopics: LogTopic[] = [airdrop.topic0 as Hex];
+                for (let i = 1; i < userTopicIndex; i++) {
+                    dynamicTopics.push(null);
+                }
+                dynamicTopics.push(paddedUserAddress);
+                
+                const latestBlock = await publicClient.getBlockNumber();
+                const blockRange = BigInt(999);
+                const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
+
+                const getLogsParams = {
+                    address: getAddress(airdrop.target_contract),
+                    topics: dynamicTopics,
+                    fromBlock: fromBlock,
+                    toBlock: latestBlock,
+                };
+                const logs = await alchemyClient.getLogs(getLogsParams);
+                
                 const isQuestCompleted = logs.length > 0;
 
                 if (!isQuestCompleted) return res.status(400).json({ message: 'Quest completion event not found on-chain.' });

@@ -1,53 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry } from '../types';
+import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry, Network, Token } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import Papa from 'papaparse';
 import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { airdropFactoryABI, airdropABI, questAirdropFactoryABI } from '../lib/abi';
-import { base, baseSepolia } from 'wagmi/chains';
-import { getVerifierAddress } from '../lib/api';
-
-// Contract Addresses
-const AIRDROP_FACTORY_ADDRESSES: Record<string, `0x${string}`> = {
-  'base-sepolia': getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2'),
-  'base': getAddress('0x6cd36B7DfCdB024CACc4D57Bbc7F3F0dB6af7Ab2'), // Placeholder, likely needs a mainnet address
-  'monad-testnet': getAddress('0x347319746dc15b955eef0388e73ef2a5973d6703'),
-};
-
-const QUEST_AIRDROP_FACTORY_ADDRESSES: Record<string, `0x${string}`> = {
-  'base-sepolia': getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64'),
-  'base': getAddress('0xc9EB956B089680bB3BB2C665DeDE4A9B2CdC8C64'), // Placeholder, likely needs a mainnet address
-  'monad-testnet': getAddress('0x24a56e0603e3f6d8458c5030d2c5ff09e3e5c451'),
-};
-
-
-const chainIdMap: Record<string, number> = {
-  'base-sepolia': baseSepolia.id,
-  'base': base.id,
-  'monad-testnet': 10143,
-};
-
-const SUPPORTED_NETWORKS: { id: string; name: string; iconUrl: string }[] = [
-  { id: 'base-sepolia', name: 'Base Sepolia', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' },
-  { id: 'base', name: 'Base', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/base/base.svg' },
-  { id: 'monad-testnet', name: 'Monad Testnet', iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/chain/monad/monad.svg' }
-];
-
-const SUPPORTED_TOKENS: Record<string, { symbol: string; address: `0x${string}`; decimals: number; iconUrl: string }[]> = {
-  'base-sepolia': [
-    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
-    { symbol: 'USDC', address: '0x4b1a87123583b2E630152668a2c2fABb44b32F36', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
-  ],
-  'base': [
-    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/eth.svg' },
-    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
-  ],
-  'monad-testnet': [
-    { symbol: 'USDC', address: '0xca81450762a8163f43740dfd8b49ebafc411dda6', decimals: 18, iconUrl: 'https://raw.githubusercontent.com/StanleyMorgan/cryptoicons/76fae77d0876d5656f8916cc5b856ce86181eba8/SVG/usdc.svg' },
-  ],
-};
-
+import * as api from '../lib/api';
 
 interface NewAirdropFormProps {
   onAddAirdrop: (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'>) => void;
@@ -73,15 +31,20 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
-  const [network, setNetwork] = useState('base-sepolia');
+  
+  const [networks, setNetworks] = useState<Network[]>([]);
+  const [network, setNetwork] = useState('');
+  
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [selectedTokenAddress, setSelectedTokenAddress] = useState('');
+  
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [whitelistCsv, setWhitelistCsv] = useState('');
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
   
   // Quest-specific fields
-  // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
   const [targetContract, setTargetContract] = useState('');
   const [topic0, setTopic0] = useState('');
   const [userTopicIndex, setUserTopicIndex] = useState<1 | 2 | 3>(2);
@@ -109,22 +72,56 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   const { data: createQuestHash, writeContract: createQuestContract, error: createQuestError } = useWriteContract();
   const { isSuccess: isCreateQuestSuccess, data: createQuestReceipt } = useWaitForTransactionReceipt({ hash: createQuestHash });
 
-  
-  const currentTokens = SUPPORTED_TOKENS[network] || [];
-  const selectedToken = currentTokens.find(t => t.address === selectedTokenAddress);
+  const selectedToken = tokens.find(t => t.contractAddress === selectedTokenAddress);
+  const selectedNetwork = networks.find(n => n.networkKey === network);
 
   useEffect(() => {
-    // Automatically switch to the default network on component mount if a wallet is connected
-    if (isConnected && chain?.id !== chainIdMap[network] && switchChain) {
-        switchChain({ chainId: chainIdMap[network] });
+    const fetchNetworks = async () => {
+      try {
+        const nets = await api.getNetworks();
+        setNetworks(nets);
+        if (nets.length > 0) {
+          const defaultNetwork = nets[0].networkKey;
+          setNetwork(defaultNetwork);
+          if (isConnected && chain?.id !== nets[0].chainId && switchChain) {
+            switchChain({ chainId: nets[0].chainId });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch networks", error);
+        setError("Could not load network configurations. Please refresh.");
+      }
+    };
+    fetchNetworks();
+  }, [isConnected, chain, switchChain]);
+
+  useEffect(() => {
+    if (!network) {
+        setTokens([]);
+        return;
     }
-  }, [isConnected, chain, network, switchChain]);
-  
+    const fetchTokens = async () => {
+        setIsLoadingTokens(true);
+        setSelectedTokenAddress(''); // Reset selection
+        try {
+            const fetchedTokens = await api.getTokens(network);
+            setTokens(fetchedTokens);
+        } catch (err) {
+            console.error(`Failed to fetch tokens for ${network}:`, err);
+            setError('Could not load tokens for the selected network.');
+            setTokens([]);
+        } finally {
+            setIsLoadingTokens(false);
+        }
+    };
+    fetchTokens();
+  }, [network]);
+
   useEffect(() => {
     if (airdropType === AirdropType.Quest && !fetchedVerifierAddress) {
       const fetchAddress = async () => {
         try {
-          const address = await getVerifierAddress();
+          const address = await api.getVerifierAddress();
           setFetchedVerifierAddress(address);
         } catch (err) {
           console.error("Failed to fetch verifier address:", err);
@@ -136,21 +133,19 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   }, [airdropType, fetchedVerifierAddress]);
 
   useEffect(() => {
-    // Calculate total amount based on type
     if (airdropType === AirdropType.Whitelist) {
       const newTotal = whitelist.reduce((sum, entry) => sum + Number(entry.amount), 0);
       setTotalAmount(newTotal);
-    } else { // Quest
+    } else {
       setTotalAmount(recipientCount * maxReward);
     }
   }, [whitelist, recipientCount, maxReward, airdropType]);
 
-
-  const handleNetworkSelect = (newNetwork: string) => {
-      setNetwork(newNetwork);
-      setSelectedTokenAddress(''); // Reset token selection on network change
-      if (switchChain && chainIdMap[newNetwork]) {
-          switchChain({ chainId: chainIdMap[newNetwork] });
+  const handleNetworkSelect = (newNetworkKey: string) => {
+      setNetwork(newNetworkKey);
+      const selectedNet = networks.find(n => n.networkKey === newNetworkKey);
+      if (switchChain && selectedNet) {
+          switchChain({ chainId: selectedNet.chainId });
       }
   };
 
@@ -213,9 +208,13 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setError("Please connect your wallet first.");
       return false;
     }
-    if (!selectedToken) {
-      setError('Please select a token.');
+    if (!selectedToken || !selectedNetwork) {
+      setError('Please select a token and network.');
       return false;
+    }
+    if (chain?.id !== selectedNetwork.chainId) {
+        setError(`Please switch your wallet to the ${selectedNetwork.name} network.`);
+        return false;
     }
     if (!name || !description || !startTime || !endTime) {
       setError('Please fill all required fields.');
@@ -279,10 +278,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
     try {
       setStatus('creatingContract');
       createQuestContract({
-        address: QUEST_AIRDROP_FACTORY_ADDRESSES[network],
+        address: selectedNetwork!.questFactoryAddress,
         abi: questAirdropFactoryABI,
         functionName: 'createQuestAirdrop',
-        args: [getAddress(selectedToken!.address), address!, fetchedVerifierAddress],
+        args: [getAddress(selectedToken!.contractAddress), address!, fetchedVerifierAddress],
         account: address,
         chain: chain,
       });
@@ -308,18 +307,18 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
   // Whitelist Effect: Create Airdrop Contract
   useEffect(() => {
-    if (status === 'creatingContract' && airdropType === AirdropType.Whitelist && merkleRoot && address && chain && selectedToken) {
+    if (status === 'creatingContract' && airdropType === AirdropType.Whitelist && merkleRoot && address && chain && selectedToken && selectedNetwork) {
         createAirdropContract({
-            address: AIRDROP_FACTORY_ADDRESSES[network],
+            address: selectedNetwork.whitelistFactoryAddress,
             abi: airdropFactoryABI,
             functionName: 'createAirdrop',
-            args: [getAddress(selectedToken.address), address],
+            args: [getAddress(selectedToken.contractAddress), address],
             account: address,
             chain: chain,
         });
         setStatus('waitingForCreation');
     }
-  }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain, network]);
+  }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain, selectedNetwork]);
 
   // Whitelist/Quest Effect: Parse contract address from logs
   useEffect(() => {
@@ -329,7 +328,6 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
 
     if (isSuccess && receipt) {
         try {
-            // Fix: Split the logic to ensure TypeScript can correctly infer the log argument types.
             if (isWhitelist) {
                 const logs = parseEventLogs({
                     abi: airdropFactoryABI,
@@ -399,7 +397,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             if (airdropType === AirdropType.Whitelist) {
                 payload = {
                     name, description, image, type: AirdropType.Whitelist,
-                    tokenAddress: selectedToken.address, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
+                    tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     whitelist, contractAddress: newAirdropAddress, merkleRoot: merkleRoot!,
@@ -408,7 +406,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             } else { // Quest
                 payload = {
                     name, description, image, type: AirdropType.Quest,
-                    tokenAddress: selectedToken.address, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
+                    tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
@@ -591,37 +589,47 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             <div className="space-y-4">
                 <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Network</label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {SUPPORTED_NETWORKS.map(net => (
-                            <button
-                                type="button"
-                                key={net.id}
-                                onClick={() => handleNetworkSelect(net.id)}
-                                aria-pressed={network === net.id}
-                                className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                                    network === net.id
-                                        ? 'border-purple-600 bg-purple-50'
-                                        : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-                                }`}
-                            >
-                                <img src={net.iconUrl} alt={`${net.name} logo`} className="w-5 h-5" />
-                                <span className="font-semibold text-sm text-slate-800">{net.name}</span>
-                            </button>
-                        ))}
-                    </div>
+                     {networks.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {networks.map(net => (
+                                <button
+                                    type="button"
+                                    key={net.networkKey}
+                                    onClick={() => handleNetworkSelect(net.networkKey)}
+                                    aria-pressed={network === net.networkKey}
+                                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                        network === net.networkKey
+                                            ? 'border-purple-600 bg-purple-50'
+                                            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <img src={net.iconUrl} alt={`${net.name} logo`} className="w-5 h-5" />
+                                    <span className="font-semibold text-sm text-slate-800">{net.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                           <p className="text-xs text-slate-500 animate-pulse">Loading networks...</p>
+                       </div>
+                    )}
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>
-                    {currentTokens.length > 0 ? (
+                    {isLoadingTokens ? (
+                         <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                           <p className="text-xs text-slate-500 animate-pulse">Loading tokens...</p>
+                       </div>
+                    ) : tokens.length > 0 ? (
                         <div className="flex flex-wrap gap-2 mt-2">
-                            {currentTokens.map(token => (
+                            {tokens.map(token => (
                                 <button
                                     type="button"
-                                    key={token.address}
-                                    onClick={() => setSelectedTokenAddress(token.address)}
-                                    aria-pressed={selectedTokenAddress === token.address}
+                                    key={token.contractAddress}
+                                    onClick={() => setSelectedTokenAddress(token.contractAddress)}
+                                    aria-pressed={selectedTokenAddress === token.contractAddress}
                                     className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                                        selectedTokenAddress === token.address
+                                        selectedTokenAddress === token.contractAddress
                                             ? 'border-purple-600 bg-purple-50'
                                             : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
                                     }`}
@@ -662,7 +670,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             <button 
               type="submit" 
               className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
-              disabled={status !== 'idle' && status !== 'error'}
+              disabled={(status !== 'idle' && status !== 'error') || networks.length === 0}
             >
               {statusMessages[status]}
             </button>

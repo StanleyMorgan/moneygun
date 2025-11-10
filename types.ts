@@ -1,4 +1,3 @@
-// Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
 export enum AirdropType {
   Whitelist = 'Whitelist',
   Quest = 'Quest',
@@ -16,6 +15,28 @@ export enum AirdropStatus {
 export interface WhitelistEntry {
   address: string;
   amount: string;
+}
+
+export interface Network {
+  id: number;
+  networkKey: string;
+  name: string;
+  chainId: number;
+  whitelistFactoryAddress: `0x${string}`;
+  questFactoryAddress: `0x${string}`;
+  rpcUrlPublic: string;
+  iconUrl?: string;
+  isTestnet: boolean;
+}
+
+export interface Token {
+  id: number;
+  networkKey: string;
+  symbol: string;
+  name: string;
+  contractAddress: `0x${string}`;
+  decimals: number;
+  iconUrl?: string;
 }
 
 export interface Airdrop {

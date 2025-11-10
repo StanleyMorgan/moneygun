@@ -1,4 +1,4 @@
-import { Airdrop, WhitelistEntry } from '../types';
+import { Airdrop, WhitelistEntry, Network, Token } from '../types';
 
 // Helper to convert snake_case object keys to camelCase.
 // This is needed because the DB/API returns snake_case and the frontend uses camelCase.
@@ -42,6 +42,33 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
     startTime: item.startTime ? new Date(item.startTime) : undefined,
     endTime: item.endTime ? new Date(item.endTime) : undefined,
   }));
+};
+
+/**
+ * Fetches the list of supported networks from the API.
+ */
+export const getNetworks = async (): Promise<Network[]> => {
+  const response = await fetch('/api/networks');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to fetch networks' }));
+    throw new Error(errorData.message);
+  }
+  const data = await response.json();
+  return convertKeysToCamelCase(data);
+};
+
+/**
+ * Fetches the list of supported tokens for a specific network from the API.
+ */
+export const getTokens = async (networkKey: string): Promise<Token[]> => {
+  if (!networkKey) return [];
+  const response = await fetch(`/api/tokens?networkKey=${networkKey}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to fetch tokens' }));
+    throw new Error(errorData.message);
+  }
+  const data = await response.json();
+  return convertKeysToCamelCase(data);
 };
 
 /**
