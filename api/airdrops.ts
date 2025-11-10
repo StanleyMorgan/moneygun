@@ -4,7 +4,7 @@ import { MerkleTree } from 'merkletreejs';
 import { keccak256, parseUnits, getAddress, isAddress, pad, toHex, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
-import { Airdrop, AirdropStatus, AirdropType, WhitelistEntry } from '../types';
+import { AirdropStatus, AirdropType, WhitelistEntry } from '../types';
 
 // --- Environment Variable and Wallet Setup ---
 
