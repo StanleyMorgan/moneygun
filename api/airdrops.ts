@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -191,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
                 
-                const dynamicTopics = [topic0 as Hex];
+                const dynamicTopics: LogTopic[] = [topic0 as Hex];
                 for (let i = 1; i < userTopicIndex; i++) {
                     dynamicTopics.push(null);
                 }
