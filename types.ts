@@ -44,10 +44,7 @@ export interface Airdrop {
   name: string;
   image?: string;
   description?: string;
-  action?: {
-    text: string;
-    url: string;
-  };
+  action?: string;
   type: AirdropType;
   tokenAddress: string;
   tokenSymbol?: string;
@@ -86,8 +83,5 @@ export interface AirdropConfig {
     endTime: string;
   };
   airdropContract: string;
-  action?: {
-    text: string;
-    url:string;
-  };
+  action?: string;
 }
