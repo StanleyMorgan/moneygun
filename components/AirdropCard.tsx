@@ -110,7 +110,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
                         <h2 className="text-base font-semibold text-slate-800 truncate pr-2">{airdrop.name}</h2>
-                        {showOwnerControls && <button onClick={openDeleteModal} className="-mt-1 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Delete airdrop"><TrashIcon className="w-5 h-5" /></button>}
+                        {showOwnerControls && airdrop.status === AirdropStatus.Draft && <button onClick={openDeleteModal} className="-mt-1 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Delete airdrop"><TrashIcon className="w-5 h-5" /></button>}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
                 </div>
