@@ -1,5 +1,4 @@
-// Fix: Refactor independent balance fetching to use wagmi's `useReadContract` hook instead of a manual `createPublicClient` call. This resolves a TypeScript type error with `client.readContract` and provides a cleaner, more robust implementation by leveraging wagmi's built-in data fetching capabilities.
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
@@ -166,7 +165,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const claimed = contractClaimedCount !== undefined ? Number(contractClaimedCount) : airdrop.claimedCount ?? 0;
     const total = airdrop.recipientCount;
     const progressPercentage = total > 0 ? Math.min((claimed / total) * 100, 100) : 0;
-    const computedStatus = getComputedStatus(airdrop, claimed, total);
+    
+    // Memoize computedStatus to prevent re-triggering effects on every render.
+    // This fixes the "flashing" and "Checking status..." on refocus bug.
+    const computedStatus = useMemo(() => getComputedStatus(airdrop, claimed, total), [airdrop, claimed, total]);
+
     const isConsideredFunded = isFunded || claimed > 0;
     const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null) || (questEligibility.status === 'error' ? questEligibility.error : null);
 
@@ -517,13 +520,24 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     }, [claimErrorHook]);
     
     useEffect(() => {
+        // FIX: The return type of `setTimeout` is `number` in browsers and `NodeJS.Timeout` in Node.js.
+        // Using `ReturnType<typeof setTimeout>` correctly infers the type based on the environment,
+        // resolving the type mismatch error in this browser-context hook.
+        let timer: ReturnType<typeof setTimeout> | undefined;
         if (questCooldown > 0) {
-            const timer = setTimeout(() => {
+            timer = setTimeout(() => {
                 setQuestCooldown(prev => prev - 1);
             }, 1000);
-            return () => clearTimeout(timer);
+        } else if (questCooldown === 0 && questVerifyStatus === 'error') {
+            // When cooldown ends after an error, reset to idle so the button shows 'Verify' again.
+            setQuestVerifyStatus('idle');
         }
-    }, [questCooldown]);
+        return () => {
+            if (timer) {
+                clearTimeout(timer);
+            }
+        };
+    }, [questCooldown, questVerifyStatus]);
 
 
     useEffect(() => { // Handle withdraw waiting
