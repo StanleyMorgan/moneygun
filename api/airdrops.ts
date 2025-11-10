@@ -1,333 +1,351 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '@vercel/postgres';
+import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { keccak256, parseUnits, getAddress, isAddress, pad, toHex, Hex } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
-import { AirdropStatus, AirdropType, WhitelistEntry } from '../types.js';
+import { WhitelistEntry } from '../types';
+import { Buffer } from 'buffer';
 
-// --- Environment Variable and Wallet Setup ---
+// FIX: The call to viemKeccak256 was requesting 'bytes' which returns a Uint8Array, causing a type mismatch with Buffer.from which expected a string for 'hex' encoding. By removing the 'bytes' argument, viemKeccak256 defaults to returning a hex string, which is then correctly processed.
+// Fix: Correctly convert the hex string from viem's keccak256 (e.g., "0x...") to a Buffer
+// by removing the "0x" prefix and specifying 'hex' encoding. This is required by `merkletreejs`.
+const keccak256 = (data: Buffer): Buffer => Buffer.from(viemKeccak256(data).slice(2), 'hex');
 
-const PRIVATE_KEY = process.env.VERIFIER_PRIVATE_KEY;
-if (!PRIVATE_KEY) {
-    console.error('VERIFIER_PRIVATE_KEY is not set.');
-    // Avoid throwing here to allow deployment, but log error.
-}
-
-const account = PRIVATE_KEY ? privateKeyToAccount(`0x${PRIVATE_KEY.startsWith('0x') ? PRIVATE_KEY.substring(2) : PRIVATE_KEY}` as Hex) : null;
-const verifierAddress = account?.address;
-
-// Basic chain configuration map
-const chainMap = {
-    'base': base,
-    'base-sepolia': baseSepolia,
-    'monad-testnet': monadTestnet
+const createLeafBuffer = (address: string, amount: bigint): Buffer => {
+    return Buffer.concat([
+        Buffer.from(getAddress(address).substring(2), 'hex'),
+        Buffer.from(amount.toString(16).padStart(64, '0'), 'hex')
+    ]);
 };
 
-
-// --- Helper Functions ---
-const toCamelCase = (s: string) => s.replace(/_([a-z])/g, g => g[1].toUpperCase());
-
-const convertObjectKeysToCamelCase = (obj: any): any => {
-    if (Array.isArray(obj)) {
-        return obj.map(v => convertObjectKeysToCamelCase(v));
-    } else if (obj !== null && typeof obj === 'object' && obj.constructor === Object) {
-        return Object.keys(obj).reduce((acc, key) => {
-            acc[toCamelCase(key)] = convertObjectKeysToCamelCase(obj[key]);
-            return acc;
-        }, {} as { [key: string]: any });
+// This is a placeholder for your secure signature generation logic.
+// In a real application, the verifier private key must be stored securely (e.g., Vercel Environment Variables).
+const signQuestData = async (userAddress: string, questId: number, amount: string, decimals: number) => {
+    const verifierPrivateKey = process.env.VERIFIER_PRIVATE_KEY as `0x${string}` | undefined;
+    if (!verifierPrivateKey) {
+        throw new Error('Verifier key is not configured on the server.');
     }
-    return obj;
-};
+    const account = privateKeyToAccount(verifierPrivateKey);
+    const amountInBase = parseUnits(amount, decimals);
+    const questIdBytes32 = pad(toHex(questId), { size: 32 });
 
-// --- API Route Handlers ---
-
-/**
- * Handles GET requests to /api/airdrops
- * - Fetches all airdrops.
- * - Fetches eligibility for a specific airdrop and user.
- * - Fetches the verifier address.
- */
-async function handleGet(req: VercelRequest, res: VercelResponse) {
-    const { airdropId, userAddress, action } = req.query;
-
-    if (action === 'getVerifierAddress') {
-        if (!verifierAddress) {
-            return res.status(500).json({ message: 'Verifier address is not configured.' });
-        }
-        return res.status(200).json({ verifierAddress });
-    }
-
-    if (airdropId && userAddress) {
-        // Fetch eligibility for a specific user
-        if (typeof airdropId !== 'string' || typeof userAddress !== 'string' || !isAddress(userAddress)) {
-            return res.status(400).json({ message: 'Invalid airdropId or userAddress.' });
-        }
-        
-        const client = await sql.connect();
-        try {
-            const airdropResult = await client.query('SELECT type, token_decimals FROM airdrops WHERE id = $1', [airdropId]);
-            if (airdropResult.rows.length === 0) {
-                return res.status(404).json({ message: 'Airdrop not found.' });
-            }
-            const { type, token_decimals } = airdropResult.rows[0];
-
-            if (type === AirdropType.Whitelist) {
-                const allEntriesResult = await client.query('SELECT address, amount FROM whitelist WHERE airdrop_id = $1', [airdropId]);
-                
-                if (allEntriesResult.rows.length === 0) {
-                    return res.status(404).json({ message: 'No whitelist entries found for this airdrop.' });
-                }
-
-                const userEntry = allEntriesResult.rows.find(row => getAddress(row.address) === getAddress(userAddress as string));
-                
-                if (!userEntry) {
-                    return res.status(404).json({ message: 'User not in whitelist.' });
-                }
-
-                const leaves = allEntriesResult.rows.map(entry => {
-                    const amountInBase = parseUnits(entry.amount, token_decimals);
-                    return Buffer.from(keccak256(`0x${Buffer.concat([Buffer.from(getAddress(entry.address).slice(2), 'hex'), Buffer.from(amountInBase.toString(16).padStart(64, '0'), 'hex')]).toString('hex')}`).slice(2), 'hex');
-                });
-                
-                const merkleTree = new MerkleTree(leaves, (data: Buffer) => Buffer.from(keccak256(data).slice(2), 'hex'), { sortPairs: true });
-                const userAmountInBase = parseUnits(userEntry.amount, token_decimals);
-                const leaf = Buffer.from(keccak256(`0x${Buffer.concat([Buffer.from(getAddress(userAddress as string).slice(2), 'hex'), Buffer.from(userAmountInBase.toString(16).padStart(64, '0'), 'hex')]).toString('hex')}`).slice(2), 'hex');
-                const proof = merkleTree.getHexProof(leaf) as Hex[];
-                
-                return res.status(200).json({ amount: userEntry.amount, proof });
-            
-            } else if (type === AirdropType.Quest) {
-                const claimedResult = await client.query('SELECT 1 FROM claims WHERE airdrop_id = $1 AND user_address = $2', [airdropId, getAddress(userAddress as string)]);
-                if (claimedResult.rows.length > 0) {
-                     return res.status(200).json({ status: 'claimed' });
-                }
-                
-                return res.status(404).json({ message: 'User has not attempted this quest yet.' });
-
-            } else {
-                 return res.status(400).json({ message: 'Unknown airdrop type.' });
-            }
-        } finally {
-            client.release();
-        }
-    } else {
-        // Fetch all airdrops
-        try {
-            const { rows } = await sql`
-                SELECT 
-                    a.*,
-                    (SELECT COUNT(*)::int FROM claims c WHERE c.airdrop_id = a.id) as claimed_count
-                FROM airdrops a 
-                ORDER BY a.created_at DESC;
-            `;
-
-            // Log the raw data from the database BEFORE serialization to debug potential bigint issues
-            console.log('--- RAW DATABASE ROWS ---');
-            console.dir(rows, { depth: null });
-            console.log('-------------------------');
-
-            return res.status(200).json(convertObjectKeysToCamelCase(rows));
-        } catch (error: any) {
-            console.error('[GET all airdrops] Error fetching airdrops from DB:', error);
-            return res.status(500).json({ message: 'Failed to fetch airdrops due to a server error.', error: error.message });
-        }
-    }
-}
-
-
-/**
- * Handles POST requests to /api/airdrops
- * - Creates a new airdrop.
- * - Updates airdrop status.
- * - Records a user claim.
- * - Verifies a quest for a user.
- */
-async function handlePost(req: VercelRequest, res: VercelResponse) {
-    const { action } = req.body;
+    // The hash must match exactly what the smart contract expects.
+    const messageHash = viemKeccak256(
+        encodePacked(
+            ['address', 'bytes32', 'uint256'],
+            [getAddress(userAddress), questIdBytes32, amountInBase]
+        )
+    );
     
-    if (action) {
-        // Handle specific actions
-        const { airdropId, userAddress } = req.body;
-        if (!airdropId || !userAddress || !isAddress(userAddress)) {
-            return res.status(400).json({ message: "Missing airdropId or invalid userAddress" });
+    // Sign the Eth-prefixed hash, which is what `toEthSignedMessageHash` does.
+    // viem's `signMessage({ message: { raw: ... } })` handles this internally.
+    const signature = await account.signMessage({ message: { raw: messageHash }});
+
+    return signature;
+}
+
+
+// Vercel Serverless Function Handler
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (req.method === 'GET') {
+        const { airdropId, userAddress, action } = req.query;
+
+        // --- Get Public Verifier Address ---
+        if (action === 'getVerifierAddress') {
+            const verifierAddress = process.env.VERIFIER_ADDRESS as `0x${string}` | undefined;
+            if (!verifierAddress) {
+                return res.status(500).json({ message: 'Verifier address is not configured on the server.' });
+            }
+            return res.status(200).json({ verifierAddress });
         }
-        
-        switch (action) {
-            case 'updateStatus': {
-                const { newStatus } = req.body;
-                 if (!Object.values(AirdropStatus).includes(newStatus)) {
-                    return res.status(400).json({ message: 'Invalid status provided.' });
+
+        // --- Eligibility Check for a specific user and airdrop ---
+        if (airdropId && userAddress) {
+             try {
+                if (typeof airdropId !== 'string' || typeof userAddress !== 'string' || !isAddress(userAddress)) {
+                    return res.status(400).json({ message: 'Invalid request parameters.' });
                 }
-                await sql`UPDATE airdrops SET status = ${newStatus} WHERE id = ${airdropId} AND creator_address = ${getAddress(userAddress)}`;
-                return res.status(200).json({ message: 'Status updated successfully.' });
-            }
-            case 'updateClaim': {
-                // Check if already claimed to prevent double counting
-                const { rows } = await sql`SELECT 1 FROM claims WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)}`;
-                if (rows.length === 0) {
-                    await sql`INSERT INTO claims (airdrop_id, user_address) VALUES (${airdropId}, ${getAddress(userAddress)});`;
-                    // This atomic increment is safer
-                }
-                return res.status(200).json({ message: 'Claim recorded.' });
-            }
-            case 'verifyQuest': {
-                if (!account) return res.status(500).json({ message: 'Verifier not configured.' });
 
-                const airdropResult = await sql`SELECT max_reward, token_decimals, network, contract_address FROM airdrops WHERE id = ${airdropId}`;
-                if (airdropResult.rows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                // Check airdrop type first
+                const { rows: airdropTypeRows } = await sql`SELECT type FROM airdrops WHERE id = ${Number(airdropId)}`;
+                if (airdropTypeRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                const airdropType = airdropTypeRows[0].type;
 
-                const { max_reward, token_decimals, network, contract_address } = airdropResult.rows[0];
-                const amountInBaseUnits = parseUnits(String(max_reward), token_decimals);
+                if (airdropType === 'Whitelist') {
+                    const { rows: userEntries } = await sql`
+                        SELECT amount, proof FROM whitelist_entries 
+                        WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
+                    `;
 
-                const questIdBytes32 = pad(toHex(airdropId), { size: 32 });
-
-                const message = {
-                    user: getAddress(userAddress),
-                    amount: amountInBaseUnits,
-                    questId: questIdBytes32,
-                };
-                const domain = {
-                    name: 'QuestAirdrop',
-                    version: '1',
-                    chainId: chainMap[network as keyof typeof chainMap].id,
-                    verifyingContract: getAddress(contract_address)
-                };
-                const types = {
-                    Claim: [
-                        { name: 'user', type: 'address' },
-                        { name: 'amount', type: 'uint256' },
-                        { name: 'questId', type: 'bytes32' },
-                    ],
-                };
-                
-                const signature = await account.signTypedData({ domain, types, primaryType: 'Claim', message });
-
-                return res.status(200).json({ amount: String(max_reward), signature });
-            }
-            default:
-                return res.status(400).json({ message: 'Invalid action.' });
-        }
-    } else {
-        // Create new airdrop
-        const client = await sql.connect();
-        try {
-            await client.query('BEGIN');
-            const { name, description, network, type, tokenAddress, tokenSymbol, tokenDecimals, totalAmount, recipientCount, creatorAddress, startTime, endTime, whitelist, contractAddress, questTitle, questUrl, maxReward, userTopicIndex, questDescription } = req.body;
-            
-            let merkleRoot = null;
-            if (type === AirdropType.Whitelist) {
-                if (!whitelist || !Array.isArray(whitelist) || whitelist.length === 0) {
-                    throw new Error("Whitelist is required for this airdrop type.");
-                }
-                const leaves = whitelist.map((entry: WhitelistEntry) => {
-                    const amountInBase = parseUnits(entry.amount, tokenDecimals);
-                    return Buffer.from(keccak256(`0x${Buffer.concat([Buffer.from(getAddress(entry.address).slice(2), 'hex'), Buffer.from(amountInBase.toString(16).padStart(64, '0'), 'hex')]).toString('hex')}`).slice(2), 'hex');
-                });
-                const merkleTree = new MerkleTree(leaves, (data: Buffer) => Buffer.from(keccak256(data).slice(2), 'hex'), { sortPairs: true });
-                merkleRoot = merkleTree.getHexRoot();
-            }
-
-            const airdropResult = await client.query(
-                `INSERT INTO airdrops (name, description, network, type, status, token_address, token_symbol, token_decimals, total_amount, recipient_count, creator_address, start_time, end_time, merkle_root, contract_address, quest_title, quest_description, quest_url, max_reward, user_topic_index)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-                 RETURNING *;`,
-                [name, description, network, type, AirdropStatus.Draft, getAddress(tokenAddress), tokenSymbol, tokenDecimals, totalAmount, recipientCount, getAddress(creatorAddress), startTime || null, endTime || null, merkleRoot, contractAddress, questTitle, questDescription, questUrl, maxReward, userTopicIndex]
-            );
-            const newAirdrop = airdropResult.rows[0];
-
-            if (type === AirdropType.Whitelist && whitelist) {
-                // Here we pre-calculate and store proofs.
-                const leaves = whitelist.map((entry: WhitelistEntry) => {
-                    const amountInBase = parseUnits(entry.amount, tokenDecimals);
-                    return Buffer.from(keccak256(`0x${Buffer.concat([Buffer.from(getAddress(entry.address).slice(2), 'hex'), Buffer.from(amountInBase.toString(16).padStart(64, '0'), 'hex')]).toString('hex')}`).slice(2), 'hex');
-                });
-                const merkleTree = new MerkleTree(leaves, (data: Buffer) => Buffer.from(keccak256(data).slice(2), 'hex'), { sortPairs: true });
-
-                for (const entry of whitelist) {
-                    const amountInBase = parseUnits(entry.amount, tokenDecimals);
-                    const leaf = Buffer.from(keccak256(`0x${Buffer.concat([Buffer.from(getAddress(entry.address).slice(2), 'hex'), Buffer.from(amountInBase.toString(16).padStart(64, '0'), 'hex')]).toString('hex')}`).slice(2), 'hex');
-                    const proof = merkleTree.getHexProof(leaf);
+                    if (userEntries.length === 0) return res.status(404).json({ message: 'User is not eligible for this airdrop.' });
                     
-                    await client.query(
-                        'INSERT INTO whitelist (airdrop_id, address, amount, proof) VALUES ($1, $2, $3, $4)',
-                        [newAirdrop.id, getAddress(entry.address), entry.amount, JSON.stringify(proof)]
-                    );
+                    const userEntry = userEntries[0];
+                    const proof = typeof userEntry.proof === 'string' ? JSON.parse(userEntry.proof) : userEntry.proof;
+
+                    return res.status(200).json({ amount: String(userEntry.amount), proof });
+                } else if (airdropType === 'Quest') {
+                    const { rows: questEntries } = await sql`
+                        SELECT status FROM quest_entries
+                        WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
+                    `;
+                    if (questEntries.length === 0) {
+                        return res.status(404).json({ message: 'User has not completed this quest yet.' });
+                    }
+                    return res.status(200).json({ status: questEntries[0].status });
+                } else {
+                    return res.status(400).json({ message: 'Unknown airdrop type.' });
                 }
+
+            } catch (error) {
+                console.error('Eligibility check error:', error);
+                return res.status(500).json({ message: 'Internal server error during eligibility check.' });
             }
-            
-            await client.query('COMMIT');
-            res.status(201).json(convertObjectKeysToCamelCase(newAirdrop));
-        } catch (error: any) {
-            await client.query('ROLLBACK');
-            console.error('Failed to create airdrop:', error);
-            res.status(500).json({ message: error.message || 'Internal server error.' });
+        } else {
+            // --- Get All Airdrops ---
+            try {
+                const { rows } = await sql`
+                    SELECT
+                        a.*,
+                        CASE
+                            WHEN a.type = 'Whitelist' THEN (SELECT COUNT(*) FROM whitelist_entries we WHERE we.airdrop_id = a.id AND we.claimed = true)
+                            WHEN a.type = 'Quest' THEN (SELECT COUNT(*) FROM quest_entries qe WHERE qe.airdrop_id = a.id AND qe.status = 'claimed')
+                            ELSE 0
+                        END as claimed_count
+                    FROM
+                        airdrops a
+                    ORDER BY
+                        a.created_at DESC;
+                `;
+                return res.status(200).json(rows);
+            } catch (error) {
+                console.error('Fetch airdrops error:', error);
+                return res.status(500).json({ message: 'Failed to fetch airdrops.' });
+            }
+        }
+    } else if (req.method === 'POST') {
+        const { action } = req.body;
+
+        if (action === 'generateMerkle') {
+             try {
+                const { whitelist, tokenDecimals = 18 } = req.body;
+                if (!whitelist || !Array.isArray(whitelist) || whitelist.length === 0) return res.status(400).json({ message: 'Valid whitelist data is required.' });
+                const leaves = whitelist.map((entry: WhitelistEntry) => keccak256(createLeafBuffer(entry.address, parseUnits(entry.amount, tokenDecimals))));
+                const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+                return res.status(200).json({ merkleRoot: tree.getHexRoot() });
+            } catch (error) {
+                console.error('Merkle generation error:', error);
+                return res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to generate Merkle root.' });
+            }
+        } 
+        else if (action === 'verifyQuest') {
+            try {
+                const { airdropId, userAddress } = req.body;
+                if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
+
+                const { rows: airdropRows } = await sql`SELECT network, topic0, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
+                if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                const airdrop = airdropRows[0];
+                
+                const { rows: networkRows } = await sql`SELECT * FROM networks WHERE network_key = ${airdrop.network}`;
+                if (networkRows.length === 0) return res.status(400).json({ message: `Network configuration for '${airdrop.network}' not found.` });
+                const network = networkRows[0];
+
+                const { rows: existingEntries } = await sql`
+                    SELECT status FROM quest_entries 
+                    WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)};
+                `;
+                if (existingEntries.length > 0) {
+                    if (existingEntries[0].status === 'claimed') {
+                        return res.status(400).json({ message: 'You have already claimed this quest reward.' });
+                    }
+                     // If 'verified', skip blockchain check and re-sign.
+                    const amount = String(airdrop.max_reward);
+                    const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
+                    return res.status(200).json({ amount, signature });
+                }
+                
+                const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+                if (!alchemyApiKey) throw new Error('Alchemy API key is not configured on the server.');
+                if (!airdrop.target_contract) return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
+                if (!airdrop.topic0) return res.status(400).json({ message: 'Airdrop is missing event topic configuration.' });
+
+                let chain: Chain;
+                let alchemyRpcUrl: string;
+
+                switch (airdrop.network) {
+                    case 'base':
+                        chain = base;
+                        alchemyRpcUrl = `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'base-sepolia':
+                        chain = baseSepolia;
+                        alchemyRpcUrl = `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'monad-testnet':
+                        chain = monadTestnet;
+                        alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    default:
+                        return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
+                }
+
+                const publicClient = createPublicClient({ chain, transport: http(network.rpc_url_public) });
+                const alchemyClient = createPublicClient({ chain, transport: http(alchemyRpcUrl) });
+
+                const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
+                const userTopicIndex = airdrop.user_topic_index || 2;
+                const dynamicTopics: LogTopic[] = [airdrop.topic0 as Hex];
+                for (let i = 1; i < userTopicIndex; i++) {
+                    dynamicTopics.push(null);
+                }
+                dynamicTopics.push(paddedUserAddress);
+                
+                const latestBlock = await publicClient.getBlockNumber();
+                const blockRange = BigInt(999);
+                const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
+
+                const getLogsParams = {
+                    address: getAddress(airdrop.target_contract),
+                    topics: dynamicTopics,
+                    fromBlock: fromBlock,
+                    toBlock: latestBlock,
+                };
+                const logs = await alchemyClient.getLogs(getLogsParams);
+                
+                const isQuestCompleted = logs.length > 0;
+
+                if (!isQuestCompleted) return res.status(400).json({ message: 'Quest completion event not found on-chain.' });
+
+                const amount = String(airdrop.max_reward);
+                const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
+
+                await sql`
+                    INSERT INTO quest_entries (airdrop_id, user_address, status) 
+                    VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified')
+                    ON CONFLICT (airdrop_id, user_address) DO NOTHING;
+                `;
+                
+                return res.status(200).json({ amount, signature });
+            } catch (error) {
+                 console.error('Quest verification error:', error);
+                return res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to verify quest.' });
+            }
+        }
+        else if (action === 'updateClaim') {
+             try {
+                const { airdropId, userAddress } = req.body;
+                if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress for claim update.' });
+                
+                const checkedUserAddress = getAddress(userAddress);
+                const { rows: airdropRows } = await sql`SELECT type FROM airdrops WHERE id = ${airdropId}`;
+                if (airdropRows.length === 0) return res.status(404).json({ message: "Airdrop not found." });
+
+                if (airdropRows[0].type === 'Whitelist') {
+                    await sql`UPDATE whitelist_entries SET claimed = true, claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                } else if (airdropRows[0].type === 'Quest') {
+                    await sql`UPDATE quest_entries SET status = 'claimed', updated_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                }
+
+                return res.status(200).json({ message: 'Claim updated successfully.' });
+            } catch (error) {
+                console.error('Claim update error:', error);
+                return res.status(500).json({ message: 'Failed to update claim status.' });
+            }
+        }
+        else if (action === 'updateStatus') {
+            try {
+                const { airdropId, newStatus, userAddress } = req.body;
+                if (!airdropId || !newStatus || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing required parameters.' });
+                if (newStatus !== 'Draft' && newStatus !== 'Active') return res.status(400).json({ message: 'Invalid status provided.' });
+
+                const { rows } = await sql`SELECT creator_address FROM airdrops WHERE id = ${Number(airdropId)}`;
+                if (rows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
+                if (getAddress(rows[0].creator_address) !== getAddress(userAddress)) return res.status(403).json({ message: 'Only the airdrop creator can change the status.' });
+
+                await sql`UPDATE airdrops SET status = ${newStatus} WHERE id = ${Number(airdropId)};`;
+                return res.status(200).json({ message: 'Status updated successfully.' });
+            } catch (error) {
+                console.error('Airdrop status update error:', error);
+                return res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to update airdrop status.' });
+            }
+        }
+        else { // Create Airdrop
+            const client = await db.connect();
+            try {
+                const { type } = req.body;
+                await client.sql`BEGIN`;
+                let createdAirdrop;
+
+                if (type === 'Whitelist') {
+                    const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, whitelist, contractAddress, merkleRoot, recipientCount } = req.body;
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !merkleRoot) return res.status(400).json({ message: 'Missing required fields for Whitelist airdrop.' });
+                    
+                    const { rows } = await client.sql`
+                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, creator_address, start_time, end_time, contract_address, merkle_root, created_at)
+                        VALUES (${name}, ${description || null}, ${image || ''}, 'Whitelist', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}, NOW())
+                        RETURNING *;`;
+                    createdAirdrop = rows[0];
+                    
+                    const tokenDecimalsForProof = tokenDecimals || 18;
+                    const leaves = whitelist.map((entry: WhitelistEntry) => keccak256(createLeafBuffer(entry.address, parseUnits(entry.amount, tokenDecimalsForProof))));
+                    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+
+                    for (const entry of whitelist) {
+                        const leaf = keccak256(createLeafBuffer(entry.address, parseUnits(entry.amount, tokenDecimalsForProof)));
+                        const proof = tree.getHexProof(leaf);
+                        await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
+                    }
+                } else if (type === 'Quest') {
+                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex } = req.body;
+                     const verifierAddress = process.env.VERIFIER_ADDRESS;
+                     if (!verifierAddress) {
+                        throw new Error("Verifier address is not configured on the server.");
+                     }
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                     const { rows } = await client.sql`
+                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topic0, user_topic_index, created_at)
+                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${topic0}, ${userTopicIndex}, NOW())
+                        RETURNING *;`;
+                    createdAirdrop = rows[0];
+                } else {
+                    return res.status(400).json({ message: 'Invalid airdrop type.' });
+                }
+
+                await client.sql`COMMIT`;
+                return res.status(201).json(createdAirdrop);
+
+            } catch (error) {
+                await client.sql`ROLLBACK`;
+                console.error('Airdrop creation error:', error);
+                return res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to create airdrop.' });
+            } finally {
+                client.release();
+            }
+        }
+    } else if (req.method === 'DELETE') {
+        const client = await db.connect();
+        try {
+            const { airdropId, userAddress } = req.body;
+            if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Invalid request parameters for deletion.' });
+            await client.sql`BEGIN`;
+            const { rows: airdropRows } = await client.sql`SELECT creator_address FROM airdrops WHERE id = ${Number(airdropId)};`;
+            if (airdropRows.length === 0) { await client.sql`ROLLBACK`; return res.status(404).json({ message: 'Airdrop not found.' }); }
+            if (getAddress(airdropRows[0].creator_address) !== getAddress(userAddress)) { await client.sql`ROLLBACK`; return res.status(403).json({ message: 'You are not authorized to delete this airdrop.' }); }
+            await client.sql`DELETE FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};`;
+            await client.sql`DELETE FROM quest_entries WHERE airdrop_id = ${Number(airdropId)};`;
+            await client.sql`DELETE FROM airdrops WHERE id = ${Number(airdropId)};`;
+            await client.sql`COMMIT`;
+            return res.status(200).json({ message: 'Airdrop deleted successfully.' });
+        } catch (error) {
+            await client.sql`ROLLBACK`;
+            console.error('Airdrop deletion error:', error);
+            return res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to delete airdrop.' });
         } finally {
             client.release();
         }
-    }
-}
-
-
-/**
- * Handles DELETE requests to /api/airdrops
- */
-async function handleDelete(req: VercelRequest, res: VercelResponse) {
-    const { airdropId, userAddress } = req.body;
-    if (!airdropId || !userAddress || !isAddress(userAddress)) {
-        return res.status(400).json({ message: 'Missing airdropId or invalid userAddress.' });
-    }
-
-    const client = await sql.connect();
-    try {
-        await client.query('BEGIN');
-        // Optional: Check if the user is the creator
-        const airdrop = await client.query('SELECT creator_address FROM airdrops WHERE id = $1', [airdropId]);
-        if (airdrop.rows.length === 0 || getAddress(airdrop.rows[0].creator_address) !== getAddress(userAddress)) {
-            return res.status(403).json({ message: "Forbidden: You are not the owner of this airdrop." });
-        }
-        
-        // Delete associated data first
-        await client.query('DELETE FROM whitelist WHERE airdrop_id = $1', [airdropId]);
-        await client.query('DELETE FROM claims WHERE airdrop_id = $1', [airdropId]);
-        
-        // Delete the airdrop itself
-        const result = await client.query('DELETE FROM airdrops WHERE id = $1', [airdropId]);
-        
-        await client.query('COMMIT');
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: "Airdrop not found." });
-        }
-
-        res.status(200).json({ message: 'Airdrop deleted successfully.' });
-    } catch (error: any) {
-        await client.query('ROLLBACK');
-        console.error('Failed to delete airdrop:', error);
-        res.status(500).json({ message: error.message || 'Failed to delete airdrop.' });
-    } finally {
-        client.release();
-    }
-}
-
-
-// --- Main Handler ---
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    try {
-        switch (req.method) {
-            case 'GET':
-                return await handleGet(req, res);
-            case 'POST':
-                return await handlePost(req, res);
-            case 'DELETE':
-                return await handleDelete(req, res);
-            default:
-                res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
-                return res.status(405).end(`Method ${req.method} Not Allowed`);
-        }
-    } catch (error: any) {
-        console.error('API Handler Error:', error);
-        return res.status(500).json({ message: 'An unexpected error occurred.', error: error.message });
+    } else {
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+        return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 }

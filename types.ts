@@ -1,17 +1,15 @@
-
-export enum AirdropStatus {
-  Draft = 'DRAFT',
-  Active = 'ACTIVE',
-  Ended = 'ENDED',
-  Failed = 'FAILED',
-  // Frontend-only computed statuses
-  InProgress = 'IN_PROGRESS',
-  Planned = 'PLANNED',
+export enum AirdropType {
+  Whitelist = 'Whitelist',
+  Quest = 'Quest',
 }
 
-export enum AirdropType {
-  Whitelist = 'WHITELIST',
-  Quest = 'QUEST',
+export enum AirdropStatus {
+  Draft = 'Draft',
+  Active = 'Active',
+  Planned = 'Planned',
+  InProgress = 'In Progress',
+  Ended = 'Ended',
+  Failed = 'Failed',
 }
 
 export interface WhitelistEntry {
@@ -19,47 +17,77 @@ export interface WhitelistEntry {
   amount: string;
 }
 
-export interface Airdrop {
-  id: number;
-  name: string;
-  description?: string;
-  network: string; // e.g., 'base', 'base-sepolia'
-  status: AirdropStatus;
-  type: AirdropType;
-  creatorAddress: string;
-  contractAddress?: string;
-  tokenAddress: string;
-  tokenSymbol: string;
-  tokenDecimals: number;
-  totalAmount: number;
-  recipientCount: number;
-  claimedCount: number;
-  merkleRoot?: string;
-  createdAt: Date;
-  startTime?: Date;
-  endTime?: Date;
-  // Quest specific fields
-  questTitle?: string;
-  questDescription?: string;
-  questUrl?: string;
-  maxReward?: number;
-  userTopicIndex?: number;
-}
-
 export interface Network {
   id: number;
+  networkKey: string;
   name: string;
-  key: string;
-  chain_id: number;
-  is_testnet: boolean;
-  block_explorer_url: string;
+  chainId: number;
+  whitelistFactoryAddress: `0x${string}`;
+  questFactoryAddress: `0x${string}`;
+  rpcUrlPublic: string;
+  iconUrl?: string;
+  isTestnet: boolean;
 }
 
 export interface Token {
   id: number;
-  name: string;
+  networkKey: string;
   symbol: string;
-  address: string;
+  name: string;
+  contractAddress: `0x${string}`;
   decimals: number;
-  network_key: string;
+  iconUrl?: string;
+}
+
+export interface Airdrop {
+  id: number;
+  name: string;
+  image?: string;
+  description?: string;
+  action?: {
+    text: string;
+    url: string;
+  };
+  type: AirdropType;
+  tokenAddress: string;
+  tokenSymbol?: string;
+  tokenDecimals?: number;
+  network?: string;
+  totalAmount: number;
+  status: AirdropStatus;
+  recipientCount: number;
+  creatorAddress: string;
+  startTime?: Date;
+  endTime?: Date;
+  createdAt: Date;
+  contractAddress?: string;
+  merkleRoot?: string;
+  maxReward?: number;
+  claimedCount?: number;
+  topic0?: string;
+  targetContract?: string;
+  userTopicIndex?: number;
+}
+
+// Detailed configuration loaded from a JSON file
+export interface AirdropConfig {
+  name: string;
+  description: string;
+  network: string;
+  type: AirdropType;
+  token: {
+    name: string;
+    symbol: string;
+    address: string;
+    decimals: number;
+  };
+  schedule: {
+    startTime: string;
+    endTime: string;
+  };
+  airdropContract: string;
+  action?: {
+    text: string;
+    url:string;
+  };
 }
