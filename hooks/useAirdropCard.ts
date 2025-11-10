@@ -4,7 +4,7 @@ import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
-import { base, baseSepolia, monadTestnet } from 'wagmi/chains';
+import { base, baseSepolia, monadTestnet } from 'viem/chains';
 
 
 // --- Helper Functions (moved from component) ---
@@ -601,9 +601,9 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         if (fundingStatus === 'success') return 'Funded!';
         if (fundingStatus === 'error') return 'Retry Load';
         if (fundingStatus === 'switching') return 'Switching Network...';
-        if (isApproving || fundingStatus === 'approving') return 'Check Wallet for Approval...';
+        if (isApproving || fundingStatus === 'approving') return 'Approving';
         if (isWaitingForApproval) return 'Approving...';
-        if (isFunding || fundingStatus === 'funding') return 'Check Wallet to Fund...';
+        if (isFunding || fundingStatus === 'funding') return 'Funding';
         if (isWaitingForFund) return 'Funding...';
         return 'Load';
     };
