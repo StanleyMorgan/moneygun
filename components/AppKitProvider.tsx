@@ -7,33 +7,22 @@ import { QueryClient } from '@tanstack/query-core';
 import { WagmiProvider } from 'wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { base, baseSepolia } from 'wagmi/chains';
+// Use the official, built-in configuration for Monad Testnet
+import { base, baseSepolia, monadTestnet } from 'wagmi/chains';
 import type { Chain } from 'viem';
 
+// The Alchemy API key is used elsewhere (e.g., backend) but is not needed for frontend RPCs.
 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
 if (!alchemyApiKey) {
   throw new Error('ALCHEMY_API_KEY is not defined. Please set it in your environment.');
 }
-
-// 1. Define custom Monad Testnet chain
-const monadTestnet: Chain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-  rpcUrls: {
-    default: { http: [`https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`] },
-  },
-  blockExplorers: {
-    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
-  },
-  testnet: true,
-};
 
 // 1. Define Project ID and Networks
 const projectId = process.env.REOWN_PROJECT_ID || 'd3141a65525d9b62939886a110b64d30';
 if (!projectId) {
   throw new Error('REOWN_PROJECT_ID is not defined. Please set it in your environment.');
 }
+// Use the imported, official monadTestnet configuration.
 const networks: [Chain, ...Chain[]] = [base, baseSepolia, monadTestnet];
 
 // 2. Create the Wagmi Adapter, which will generate the wagmiConfig

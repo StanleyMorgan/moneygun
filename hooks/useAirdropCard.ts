@@ -5,7 +5,7 @@ import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
-import { base, baseSepolia } from 'wagmi/chains';
+import { base, baseSepolia, monadTestnet } from 'wagmi/chains';
 
 
 // --- Helper Functions (moved from component) ---
@@ -77,19 +77,6 @@ export const formatDateTime = (date: Date | undefined) => {
         hour: 'numeric',
         minute: '2-digit',
     });
-};
-
-const monadTestnet: Chain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://rpc.ankr.com/monad_testnet'] },
-  },
-  blockExplorers: {
-    default: { name: 'Socialscan', url: 'https://monad-testnet.socialscan.io' },
-  },
-  testnet: true,
 };
 
 const chainIdMap: Record<string, number> = {

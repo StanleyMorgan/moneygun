@@ -3,7 +3,7 @@ import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
 import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia } from 'viem/chains';
+import { base, baseSepolia, monadTestnet } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
 
@@ -183,13 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         alchemyRpcUrl = `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
                     case 'monad-testnet':
-                        chain = {
-                            id: network.chain_id,
-                            name: network.name,
-                            nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-                            rpcUrls: { default: { http: [network.rpc_url_public] } },
-                            testnet: true,
-                        };
+                        chain = monadTestnet;
                         alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
                     default:
