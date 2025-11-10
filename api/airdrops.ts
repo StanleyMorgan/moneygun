@@ -1,11 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain } from 'viem';
+// FIX: `FilterTopic` may not be exported in all viem versions, causing type errors. It is now defined locally. `BlockTag` is added for better type safety with `getLogs`.
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, BlockTag } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
+
+// FIX: Define `FilterTopic` locally to resolve import issues and aid TypeScript's type inference for `getLogs`.
+type FilterTopic = Hex | Hex[] | null;
 
 // FIX: The call to viemKeccak256 was requesting 'bytes' which returns a Uint8Array, causing a type mismatch with Buffer.from which expected a string for 'hex' encoding. By removing the 'bytes' argument, viemKeccak256 defaults to returning a hex string, which is then correctly processed.
 // Fix: Correctly convert the hex string from viem's keccak256 (e.g., "0x...") to a Buffer
@@ -174,62 +178,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json({ amount, signature });
                 }
                 
-                let chain: Chain;
-                let rpcUrl: string;
-
+                let logs;
                 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
                 if (!alchemyApiKey) {
                     throw new Error('Alchemy API key is not configured on the server.');
                 }
 
-                switch (airdrop.network) {
-                    case 'base':
-                        chain = base;
-                        rpcUrl = `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
-                        break;
-                    case 'base-sepolia':
-                        chain = baseSepolia;
-                        rpcUrl = `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
-                        break;
-                    case 'monad-testnet':
-                        chain = monadTestnet;
-                        rpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
-                        break;
-                    default:
-                        return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
-                }
-                
                 if (!airdrop.target_contract) {
                     return res.status(400).json({ message: 'Target contract for this quest is not configured.' });
                 }
-                
-                const client = createPublicClient({
-                    chain: chain,
-                    transport: http(rpcUrl),
-                });
-                
-                const latestBlock = await client.getBlockNumber();
-                const blockRange = BigInt(999); // Alchemy allows a larger block range.
-                const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
                 const rawTopics = airdrop.topics;
                 const airdropTopics = (typeof rawTopics === 'string' ? JSON.parse(rawTopics) : rawTopics) as Hex[];
                 const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
-
-                const dynamicTopics: (Hex | null)[] = [airdropTopics[0]];
+                // FIX: Explicitly type `dynamicTopics` with `FilterTopic[]` from viem.
+                // This helps TypeScript select the correct overload for `getLogs` and resolves the type error
+                // where `topics` was considered an unknown property.
+                const dynamicTopics: FilterTopic[] = [airdropTopics[0]];
                 for (let i = 1; i < userTopicIndex; i++) {
                     dynamicTopics.push(null);
                 }
                 dynamicTopics.push(paddedUserAddress);
+                const blockRange = BigInt(999);
 
-                const logParams = {
-                    address: getAddress(airdrop.target_contract),
-                    topics: dynamicTopics,
-                    fromBlock: fromBlock,
-                    toBlock: latestBlock,
-                };
-                const logs = await client.getLogs(logParams);
+                switch (airdrop.network) {
+                    case 'base':
+                    case 'base-sepolia': {
+                        const chain = airdrop.network === 'base' ? base : baseSepolia;
+                        
+                        const alchemyRpcUrl = airdrop.network === 'base'
+                            ? `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`
+                            : `https://base-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
+                        const publicRpcUrl = chain.rpcUrls.default.http[0];
+
+                        const alchemyClient = createPublicClient({ chain, transport: http(alchemyRpcUrl) });
+                        const publicClient = createPublicClient({ chain, transport: http(publicRpcUrl) });
+                        
+                        const latestBlock = await publicClient.getBlockNumber();
+                        const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
+                        
+                        logs = await alchemyClient.getLogs({
+                            address: getAddress(airdrop.target_contract),
+                            topics: dynamicTopics,
+                            fromBlock: fromBlock,
+                            toBlock: latestBlock,
+                        });
+                        break;
+                    }
+                    case 'monad-testnet': {
+                        const alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        const publicRpcUrl = 'https://rpc.ankr.com/monad_testnet';
+
+                        const alchemyClient = createPublicClient({ chain: monadTestnet, transport: http(alchemyRpcUrl) });
+                        const publicClient = createPublicClient({ chain: monadTestnet, transport: http(publicRpcUrl) });
+
+                        // Use public client for block number to save Alchemy credits
+                        const latestBlock = await publicClient.getBlockNumber();
+                        const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
+
+                        // Use Alchemy client for the expensive getLogs call
+                        logs = await alchemyClient.getLogs({
+                            address: getAddress(airdrop.target_contract),
+                            topics: dynamicTopics,
+                            fromBlock: fromBlock,
+                            toBlock: latestBlock,
+                        });
+                        break;
+                    }
+                    default:
+                        return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });
+                }
 
                 const isQuestCompleted = logs.length > 0;
 
