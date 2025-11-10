@@ -1,38 +1,11 @@
+
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
-import { formatUnits } from 'viem';
-import { useAirdropCard, formatDateTime, formatNetworkName } from '../hooks/useAirdropCard';
-import { InfoIcon } from './icons/InfoIcon';
+import { useAirdropCard, getBlockExplorerUrl, formatNetworkName, formatDateTime } from '../hooks/useAirdropCard';
+import { ArrowUpRightIcon } from './icons/ArrowUpRightIcon';
+import { CogIcon } from './icons/CogIcon';
 import { TrashIcon } from './icons/TrashIcon';
-
-const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
-  const statusClasses: Record<AirdropStatus, string> = {
-    [AirdropStatus.Draft]: 'bg-slate-100 text-slate-600',
-    [AirdropStatus.Planned]: 'bg-yellow-100 text-yellow-600',
-    [AirdropStatus.InProgress]: 'bg-green-100 text-green-600 animate-pulse',
-    [AirdropStatus.Ended]: 'bg-red-100 text-red-600',
-    [AirdropStatus.Failed]: 'bg-red-100 text-red-600',
-    [AirdropStatus.Active]: 'bg-purple-100 text-purple-600', // Fallback
-  };
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusClasses[status]}`}>
-      {status}
-    </span>
-  );
-};
-
-const TypeBadge: React.FC<{ type: AirdropType }> = ({ type }) => {
-  const typeClasses: Record<AirdropType, string> = {
-    [AirdropType.Whitelist]: 'bg-slate-100 text-slate-600',
-    [AirdropType.Quest]: 'bg-indigo-100 text-indigo-600',
-  };
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${typeClasses[type]}`}>
-      {type}
-    </span>
-  );
-};
-
+import { InfoIcon } from './icons/InfoIcon';
 
 interface AirdropCardProps {
   airdrop: Airdrop;
@@ -42,195 +15,254 @@ interface AirdropCardProps {
 }
 
 const AirdropCard: React.FC<AirdropCardProps> = (props) => {
-    const {
-        computedStatus,
-        progressPercentage,
-        claimed,
-        total,
-        contractBalance,
-        isBalanceLoading,
-        anyError,
-        showOwnerControls,
-        ownerAction,
-        isCheckingClaimedStatus,
-        hasClaimed,
-        eligibility,
-        claimStatus,
-        claimButtonText,
-        questEligibility,
-        questSignature,
-        isDeleteModalOpen,
-        deleteStatus,
-        deleteError,
-        withdrawStatus,
-        withdrawError,
-        withdrawButtonText,
-        questButtonText,
-        isQuestButtonDisabled,
-        handleClaim,
-        handleQuestVerify,
-        handleDelete,
-        handleWithdraw,
-        openDeleteModal,
-        closeDeleteModal,
-    } = useAirdropCard(props);
-    
-    const { airdrop, viewAsOwner } = props;
+  const {
+    // State and Computed Values
+    computedStatus,
+    progressPercentage,
+    claimed,
+    total,
+    contractBalance,
+    isBalanceLoading,
+    isConsideredFunded,
+    anyError,
+    showOwnerControls,
+    ownerAction,
+    // Claiming
+    isCheckingClaimedStatus,
+    hasClaimed,
+    eligibility,
+    claimStatus,
+    claimButtonText,
+    // Quest
+    questEligibility,
+    questVerifyStatus,
+    questSignature,
+    questButtonText,
+    isQuestButtonDisabled,
+    // Deleting
+    isDeleteModalOpen,
+    deleteStatus,
+    deleteError,
+    // Withdrawing
+    withdrawStatus,
+    withdrawError,
+    withdrawButtonText,
+    // Handlers
+    handleClaim,
+    handleQuestVerify,
+    handleDelete,
+    handleWithdraw,
+    openDeleteModal,
+    closeDeleteModal,
+  } = useAirdropCard(props);
+  const { airdrop } = props;
 
-    const renderClaimAction = () => {
-        if (isCheckingClaimedStatus) return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-        if (hasClaimed || questEligibility.status === 'claimed') return <button disabled className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">Claimed</button>;
 
-        if (airdrop.type === AirdropType.Whitelist) {
-            if (eligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking eligibility...</p>;
-            if (eligibility.status === 'ineligible') return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Not Eligible</button>;
-            if (eligibility.status === 'eligible' || eligibility.status === 'error') {
-                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
-            }
-        }
+  const StatusBadge: React.FC<{ status: AirdropStatus }> = ({ status }) => {
+    const statusStyles: Record<AirdropStatus, { text: string; bg: string, dot: string }> = {
+      [AirdropStatus.InProgress]: { text: 'text-green-700', bg: 'bg-green-100', dot: 'bg-green-500' },
+      [AirdropStatus.Planned]: { text: 'text-blue-700', bg: 'bg-blue-100', dot: 'bg-blue-500' },
+      [AirdropStatus.Ended]: { text: 'text-slate-700', bg: 'bg-slate-100', dot: 'bg-slate-500' },
+      [AirdropStatus.Draft]: { text: 'text-yellow-700', bg: 'bg-yellow-100', dot: 'bg-yellow-500' },
+      [AirdropStatus.Failed]: { text: 'text-red-700', bg: 'bg-red-100', dot: 'bg-red-500' },
+      [AirdropStatus.Active]: { text: 'text-green-700', bg: 'bg-green-100', dot: 'bg-green-500' }, // Fallback
+    };
+    const { text, bg, dot } = statusStyles[status] || statusStyles[AirdropStatus.Ended];
+    return (
+      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${text} ${bg}`}>
+        <span className={`w-2 h-2 mr-1.5 rounded-full ${dot}`}></span>
+        {status.replace('_', ' ')}
+      </span>
+    );
+  };
+  
+  const formattedTotalAmount = new Intl.NumberFormat().format(airdrop.totalAmount);
+  const formattedBalance = contractBalance != null 
+    ? parseFloat((Number(contractBalance) / (10 ** (airdrop.tokenDecimals || 18))).toFixed(4))
+    : 0;
 
-        if (airdrop.type === AirdropType.Quest) {
-            if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-            if (questEligibility.status === 'verified' || questSignature) {
-                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
-            }
-            return <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{questButtonText}</button>;
-        }
-        
-        return null;
+  const renderClaimerAction = () => {
+    if (showOwnerControls) return null;
+    if (hasClaimed) {
+        return <div className="text-sm text-center font-medium text-green-600 bg-green-50 p-3 rounded-lg">You have already claimed this airdrop.</div>
     }
-
-    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    if (computedStatus !== AirdropStatus.InProgress) {
+        return <div className="text-sm text-center font-medium text-slate-500 bg-slate-50 p-3 rounded-lg">This airdrop is not active for claims.</div>
+    }
+    if (airdrop.type === AirdropType.Whitelist) {
+        if (isCheckingClaimedStatus || eligibility.status === 'checking') return <div className="text-sm text-center animate-pulse">Checking eligibility...</div>
+        if (eligibility.status === 'eligible') {
+            return (
+                 <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="w-full bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors">
+                    {claimButtonText}
+                </button>
+            )
+        }
+        if (eligibility.status === 'ineligible') {
+            return <div className="text-sm text-center font-medium text-slate-500 bg-slate-50 p-3 rounded-lg">You are not eligible for this airdrop.</div>
+        }
+    }
+    if (airdrop.type === AirdropType.Quest) {
+        if (questEligibility.status === 'checking') return <div className="text-sm text-center animate-pulse">Checking quest status...</div>
+        if (questEligibility.status === 'claimed') return <div className="text-sm text-center text-green-600 bg-green-50 p-3 rounded-lg">Quest reward already claimed.</div>
+        if (questEligibility.status === 'not_started' || questVerifyStatus === 'idle' || questVerifyStatus === 'error') {
+            return (
+                <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors">
+                    {questButtonText}
+                </button>
+            )
+        }
+        if (questVerifyStatus === 'verifying') {
+             return <div className="text-sm text-center animate-pulse">Verifying quest completion...</div>
+        }
+        if (questVerifyStatus === 'verified' && questSignature) {
+             return (
+                 <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="w-full bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors">
+                    {claimButtonText}
+                </button>
+            )
+        }
+    }
+    return null;
+  }
+  
+  const renderOwnerAction = () => {
+    if (!showOwnerControls || !ownerAction) return null;
 
     return (
-        <div className="relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
-            <div className="flex items-start gap-4">
-                <img src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'} alt={`${airdrop.name} airdrop icon`} className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-2">
-                        <h2 className="text-base font-semibold text-slate-800 truncate pr-2">{airdrop.name}</h2>
-                        {showOwnerControls && <button onClick={openDeleteModal} className="-mt-1 p-1.5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Delete airdrop"><TrashIcon className="w-5 h-5" /></button>}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">{airdrop.description || 'No description'}</p>
-                </div>
-            </div>
-            
-            <div className="flex items-start text-xs">
-                <div className="w-1/2"><p className="text-slate-500">Start Time</p><p className="font-medium text-slate-800">{formatDateTime(airdrop.startTime)}</p></div>
-                <div className="w-1/2"><p className="text-slate-500">End Time</p><p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p></div>
-            </div>
-
-            {computedStatus === AirdropStatus.InProgress && total > 0 && (
-                <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label={`Airdrop progress: ${progressPercentage.toFixed(0)}% claimed`}></div>
-                </div>
-            )}
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div><p className="text-slate-500">Network</p><p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p></div>
-                <div><p className="text-slate-500">Total Amount</p><p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p></div>
-                <div><p className="text-slate-500">Claimed / Total</p><p className="font-medium text-slate-800">{`${claimed} / ${total}`}</p></div>
-                {viewAsOwner ? (
-                    <div>
-                        <p className="text-slate-500">Contract Balance</p>
-                        <p className="font-medium text-slate-800">
-                            {isBalanceLoading ? (
-                                <span className="animate-pulse">...</span>
-                            ) : (
-                                <>
-                                    {typeof contractBalance === 'bigint' ? formatUnits(contractBalance, airdrop.tokenDecimals || 18) : 'N/A'} {airdrop.tokenSymbol}
-                                </>
-                            )}
-                        </p>
-                    </div>
-                ) : (
-                    <div><p className="text-slate-500">Reward</p><p className="font-medium text-slate-800">{airdrop.maxReward ? `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`: 'Varies'}</p></div>
-                )}
-            </div>
-
-            <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center min-h-[36px]">
-                    <div className="flex items-center gap-2">
-                        <TypeBadge type={airdrop.type} />
-                        <StatusBadge status={computedStatus} />
-                    </div>
-                    <div className="flex-shrink-0 flex justify-end">
-                        {showOwnerControls && ownerAction ? (
-                            <div className="flex items-center gap-2">
-                                <div className="relative group flex items-center">
-                                    <InfoIcon className="w-4 h-4 text-slate-400 hover:text-slate-600 cursor-help" />
-                                    <div className="absolute bottom-full right-1/2 translate-x-1/2 mb-2 w-64 p-3 text-xs leading-relaxed text-white bg-slate-800 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 text-center">
-                                        {ownerAction.description}
-                                        <svg className="absolute text-slate-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xmlSpace="preserve"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                                    </div>
-                                </div>
-                                <button onClick={ownerAction.buttonAction} disabled={ownerAction.buttonDisabled} className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${ownerAction.buttonClassName}`}>{ownerAction.buttonText}</button>
-                            </div>
-                        ) : computedStatus === AirdropStatus.InProgress && !showOwnerControls ? (
-                            <div className="flex justify-end items-center gap-4">{renderClaimAction()}</div>
-                        ) : null}
-                    </div>
-                </div>
-                {anyError && <p className="text-red-600 text-xs mt-2 text-center w-full">{anyError}</p>}
-            </div>
-            {isDeleteModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
-                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-                        {typeof contractBalance === 'bigint' && contractBalance > 0n ? (
-                             <>
-                                <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Contract Has Funds</h2>
-                                <p className="mt-2 text-sm text-slate-600">
-                                    This contract still holds{' '}
-                                    <strong className="font-medium">
-                                        {formatUnits(contractBalance, airdrop.tokenDecimals || 18)} {airdrop.tokenSymbol}
-                                    </strong>.
-                                    You should withdraw these funds to your wallet before deleting.
-                                </p>
-                                <p className="mt-2 text-xs text-slate-500">
-                                    Deleting this entry only removes it from the dashboard. It does not affect the on-chain contract.
-                                </p>
-                                
-                                {withdrawError && <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{withdrawError}</p>}
-                                
-                                {withdrawStatus === 'success' && (
-                                    <p className="mt-4 text-sm text-green-600 bg-green-50 p-3 rounded-md">
-                                        Withdrawal successful! Closing modal...
-                                    </p>
-                                )}
-
-                                <div className="mt-6 flex justify-end gap-3">
-                                    <button 
-                                        onClick={closeDeleteModal} 
-                                        disabled={withdrawStatus === 'waiting' || withdrawStatus === 'withdrawing' || withdrawStatus === 'success'}
-                                        className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button 
-                                        onClick={handleWithdraw} 
-                                        disabled={withdrawStatus === 'waiting' || withdrawStatus === 'withdrawing' || withdrawStatus === 'success'}
-                                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:cursor-wait"
-                                    >
-                                        {withdrawButtonText}
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <h2 id="delete-modal-title" className="text-lg font-semibold text-slate-800">Delete Airdrop?</h2>
-                                <p className="mt-2 text-sm text-slate-600">Are you sure you want to permanently delete the <strong className="font-medium">"{airdrop.name}"</strong> airdrop? This action cannot be undone.</p>
-                                {deleteError && <p className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-md">{deleteError}</p>}
-                                <div className="mt-6 flex justify-end gap-3">
-                                    <button onClick={closeDeleteModal} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50">Cancel</button>
-                                    <button onClick={handleDelete} disabled={deleteStatus === 'deleting'} className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-400 disabled:cursor-wait">{deleteStatus === 'deleting' ? 'Deleting...' : 'Delete'}</button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
+        <div className="bg-slate-50 p-3 rounded-lg text-center">
+            <p className="text-xs text-slate-600 mb-2">{ownerAction.description}</p>
+            <button
+                onClick={ownerAction.buttonAction}
+                disabled={ownerAction.buttonDisabled}
+                className={`w-full text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 ${ownerAction.buttonClassName}`}
+            >
+                {ownerAction.buttonText}
+            </button>
         </div>
     );
+  };
+  
+  const DeleteModal = () => {
+    if (!isDeleteModalOpen) return null;
+    const hasBalance = contractBalance != null && contractBalance > 0;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-sm m-4">
+          <h3 className="text-lg font-bold">Delete Airdrop</h3>
+          <p className="text-sm text-slate-600 mt-2">
+            {hasBalance ? 'This contract still holds funds.' : 'Are you sure you want to permanently delete this airdrop? This action cannot be undone.'}
+          </p>
+          
+          {hasBalance && (
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs p-3 rounded-lg">
+                <p className="font-semibold mb-1 flex items-center gap-1.5"><InfoIcon className="w-4 h-4" /> Important</p>
+                To delete this airdrop, you must first withdraw the remaining <span className="font-bold">{formattedBalance} {airdrop.tokenSymbol}</span>.
+                Withdrawing is an on-chain transaction.
+            </div>
+          )}
+
+          {withdrawError && <div className="mt-2 text-xs text-red-600">{withdrawError}</div>}
+          {deleteError && <div className="mt-2 text-xs text-red-600">{deleteError}</div>}
+          
+          <div className="mt-6 flex justify-end gap-3">
+            <button onClick={closeDeleteModal} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">
+              Cancel
+            </button>
+            {hasBalance ? (
+                <button
+                    onClick={handleWithdraw}
+                    disabled={withdrawStatus !== 'idle' && withdrawStatus !== 'error'}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:bg-blue-300"
+                >
+                    {withdrawButtonText}
+                </button>
+            ) : (
+                <button
+                    onClick={handleDelete}
+                    disabled={deleteStatus === 'deleting'}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:bg-red-300"
+                >
+                    {deleteStatus === 'deleting' ? 'Deleting...' : 'Delete Airdrop'}
+                </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4">
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-800">{airdrop.name}</h2>
+          <div className="flex items-center text-xs text-slate-500 gap-2">
+            <span>{formatNetworkName(airdrop.network)}</span>
+            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+            <span>{formattedTotalAmount} <span className="font-medium">{airdrop.tokenSymbol}</span></span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+            <StatusBadge status={computedStatus} />
+            {showOwnerControls && (
+                 <div className="relative group">
+                    <button className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-full"><CogIcon className="w-5 h-5" /></button>
+                     <div className="absolute top-full right-0 mt-1 bg-white border rounded-md shadow-lg w-40 z-10 hidden group-hover:block">
+                        <button onClick={openDeleteModal} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <TrashIcon className="w-4 h-4" /> Delete Airdrop
+                        </button>
+                    </div>
+                 </div>
+            )}
+        </div>
+      </div>
+      
+      {airdrop.description && <p className="text-xs text-slate-600">{airdrop.description}</p>}
+      
+      {airdrop.type === AirdropType.Quest && airdrop.questUrl && (
+         <a href={airdrop.questUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+            View Quest <ArrowUpRightIcon className="w-3 h-3" />
+        </a>
+      )}
+
+      <div>
+        <div className="flex justify-between items-center text-xs mb-1">
+          <span className="font-medium text-slate-600">Claims</span>
+          <span className="text-slate-500">{new Intl.NumberFormat().format(claimed)} / {new Intl.NumberFormat().format(total)}</span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-2">
+          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
+        </div>
+      </div>
+      
+      <div className="border-t border-slate-200 pt-3">
+          {renderClaimerAction()}
+          {renderOwnerAction()}
+      </div>
+
+      {anyError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{anyError}</div>}
+      
+       <div className="text-xs text-slate-400 flex items-center justify-between">
+           <div>
+            {airdrop.startTime && <span>Starts: {formatDateTime(airdrop.startTime)}</span>}
+            {airdrop.endTime && <span className="ml-2">Ends: {formatDateTime(airdrop.endTime)}</span>}
+           </div>
+           {airdrop.contractAddress && (
+             <a href={getBlockExplorerUrl(airdrop.network, airdrop.contractAddress)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                Contract <ArrowUpRightIcon className="w-3 h-3" />
+             </a>
+            )}
+      </div>
+
+       {showOwnerControls && (
+            <div className={`text-xs p-2 rounded-md ${isConsideredFunded ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                Contract Balance: {isBalanceLoading ? 'Loading...' : `${new Intl.NumberFormat().format(formattedBalance)} ${airdrop.tokenSymbol}`}
+            </div>
+        )}
+      <DeleteModal />
+    </div>
+  );
 };
 
 export default AirdropCard;
