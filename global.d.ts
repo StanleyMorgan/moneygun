@@ -1,5 +1,9 @@
 /// <reference types="react" />
 
+// FIX: Added 'import "react"' to ensure JSX typings are loaded before augmentation.
+// This resolves issues in some environments where custom element types are not recognized.
+import 'react';
+
 // FIX: This file is now an explicit module with global declarations. This ensures TypeScript
 // correctly augments the global JSX namespace for custom elements like 'appkit-button',
 // resolving "does not exist on type 'JSX.IntrinsicElements'" errors.
