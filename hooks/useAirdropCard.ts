@@ -492,10 +492,15 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     }, [approveError, fundError]);
 
     useEffect(() => { // Handle claim success
-        const updateClaimInDb = async () => {
+        const updateAndRefetch = async () => {
             if (isClaimedSuccess && address) {
                 setClaimStatus('success');
+                // Refetch all relevant on-chain data after a successful claim
                 refetchHasClaimed();
+                refetchClaimedCount();
+                triggerRefetchBalance();
+
+                // Update the backend in the background
                 try {
                     await fetch('/api/airdrops', {
                         method: 'POST',
@@ -507,8 +512,8 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 }
             }
         };
-        updateClaimInDb();
-    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed]);
+        updateAndRefetch();
+    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed, refetchClaimedCount, triggerRefetchBalance]);
 
     useEffect(() => { // Handle claim error
         if (claimErrorHook) {
@@ -548,13 +553,15 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     useEffect(() => { // Handle withdraw success
         if (isWithdrawSuccess) {
             setWithdrawStatus('success');
+            // Refetch contract state after withdrawal
             triggerRefetchBalance();
+            refetchClaimedCount();
             setTimeout(() => {
                 setIsDeleteModalOpen(false);
                 setWithdrawStatus('idle');
             }, 2500);
         }
-    }, [isWithdrawSuccess, triggerRefetchBalance]);
+    }, [isWithdrawSuccess, triggerRefetchBalance, refetchClaimedCount]);
 
     useEffect(() => { // Handle withdraw error
         if (withdrawErrorHook) {
