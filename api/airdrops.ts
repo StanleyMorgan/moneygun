@@ -116,7 +116,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
         const { rows } = await sql`
             SELECT 
                 a.*,
-                (SELECT COUNT(*) FROM claims c WHERE c.airdrop_id = a.id) as claimed_count
+                (SELECT COUNT(*)::int FROM claims c WHERE c.airdrop_id = a.id) as claimed_count
             FROM airdrops a 
             ORDER BY a.created_at DESC;
         `;
