@@ -107,6 +107,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [questSignature, setQuestSignature] = useState<`0x${string}` | null>(null);
     const [questAmount, setQuestAmount] = useState<string | null>(null);
     const [questError, setQuestError] = useState('');
+    const [questCooldown, setQuestCooldown] = useState(0);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [fundingStatus, setFundingStatus] = useState<'idle' | 'switching' | 'approving' | 'funding' | 'success' | 'error'>('idle');
     const [fundingError, setFundingError] = useState('');
@@ -173,7 +174,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
 
     // Handlers
     const handleQuestVerify = useCallback(async () => {
-        if (!isConnected || !address) {
+        if (!isConnected || !address || questCooldown > 0) {
             setQuestError('Please connect your wallet.');
             return;
         }
@@ -187,8 +188,9 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         } catch (err: any) {
             setQuestError(err.message);
             setQuestVerifyStatus('error');
+            setQuestCooldown(30);
         }
-    }, [airdrop.id, address, isConnected]);
+    }, [airdrop.id, address, isConnected, questCooldown]);
 
     const handleStatusToggle = useCallback(async () => {
         if (!isActualOwner || !address) return;
@@ -513,6 +515,16 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             }
         }
     }, [claimErrorHook]);
+    
+    useEffect(() => {
+        if (questCooldown > 0) {
+            const timer = setTimeout(() => {
+                setQuestCooldown(prev => prev - 1);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [questCooldown]);
+
 
     useEffect(() => { // Handle withdraw waiting
         if (isWaitingForWithdraw) setWithdrawStatus('waiting');
@@ -590,6 +602,20 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         }
     }
 
+    let questButtonText = 'Verify';
+    let isQuestButtonDisabled = false;
+
+    if (questCooldown > 0) {
+        questButtonText = `Retry in ${questCooldown}s`;
+        isQuestButtonDisabled = true;
+    } else if (questVerifyStatus === 'verifying') {
+        questButtonText = 'Verifying...';
+        isQuestButtonDisabled = true;
+    } else if (questVerifyStatus === 'error') {
+        questButtonText = 'Retry Verification';
+    }
+
+
     return {
         // State and Computed Values
         address,
@@ -615,6 +641,8 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         questEligibility,
         questVerifyStatus,
         questSignature,
+        questButtonText,
+        isQuestButtonDisabled,
         
         // Deleting
         isDeleteModalOpen,

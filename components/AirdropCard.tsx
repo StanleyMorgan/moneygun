@@ -58,7 +58,6 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         claimStatus,
         claimButtonText,
         questEligibility,
-        questVerifyStatus,
         questSignature,
         isDeleteModalOpen,
         deleteStatus,
@@ -66,6 +65,8 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         withdrawStatus,
         withdrawError,
         withdrawButtonText,
+        questButtonText,
+        isQuestButtonDisabled,
         handleClaim,
         handleQuestVerify,
         handleDelete,
@@ -90,11 +91,10 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
 
         if (airdrop.type === AirdropType.Quest) {
             if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-            if (questVerifyStatus === 'verified' || questSignature) {
+            if (questEligibility.status === 'verified' || questSignature) {
                 return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
-            const verifyText = questVerifyStatus === 'verifying' ? 'Verifying...' : questVerifyStatus === 'error' ? 'Retry Verification' : 'Verify Quest';
-            return <button onClick={handleQuestVerify} disabled={questVerifyStatus === 'verifying'} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{verifyText}</button>;
+            return <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{questButtonText}</button>;
         }
         
         return null;
