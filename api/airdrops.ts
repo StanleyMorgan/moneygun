@@ -1,16 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-// FIX: `FilterTopic` may not be exported in all viem versions, causing type errors. It is now defined locally. `BlockTag` is added for better type safety with `getLogs`.
 import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
-
-// FIX: Add local type definitions for FilterTopic and BlockTag to resolve type inference issues with viem's getLogs function. This is necessary when these types are not exported by the installed viem version.
-type FilterTopic = Hex | Hex[] | boolean | null;
-type BlockTag = 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized';
 
 // FIX: The call to viemKeccak256 was requesting 'bytes' which returns a Uint8Array, causing a type mismatch with Buffer.from which expected a string for 'hex' encoding. By removing the 'bytes' argument, viemKeccak256 defaults to returning a hex string, which is then correctly processed.
 // Fix: Correctly convert the hex string from viem's keccak256 (e.g., "0x...") to a Buffer
@@ -196,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
                 
-                const dynamicTopics: FilterTopic[] = [topic0 as Hex];
+                const dynamicTopics = [topic0 as Hex];
                 for (let i = 1; i < userTopicIndex; i++) {
                     dynamicTopics.push(null);
                 }
@@ -219,14 +214,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const latestBlock = await publicClient.getBlockNumber();
                         const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
                         
-                        // FIX: Add `abi: []` to hint to TypeScript's inference for viem's complex `getLogs` types, resolving an issue where `topics` was considered an unknown property.
-                        logs = await alchemyClient.getLogs({
-                            abi: [],
+                        // FIX: By creating a variable for the parameters object first, we avoid TypeScript's "excess property checking" on object literals, which can fail with complex union types like in `getLogs`. This helps the compiler correctly match the overload that accepts the `topics` property.
+                        const getLogsParams = {
                             address: getAddress(airdrop.target_contract),
                             topics: dynamicTopics,
                             fromBlock: fromBlock,
                             toBlock: latestBlock,
-                        });
+                        };
+                        logs = await alchemyClient.getLogs(getLogsParams);
                         break;
                     }
                     case 'monad-testnet': {
@@ -241,14 +236,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
 
                         // Use Alchemy client for the expensive getLogs call
-                        // FIX: Add `abi: []` to hint to TypeScript's inference for viem's complex `getLogs` types, resolving an issue where `topics` was considered an unknown property.
-                        logs = await alchemyClient.getLogs({
-                            abi: [],
+                        // FIX: By creating a variable for the parameters object first, we avoid TypeScript's "excess property checking" on object literals, which can fail with complex union types like in `getLogs`. This helps the compiler correctly match the overload that accepts the `topics` property.
+                        const getLogsParams = {
                             address: getAddress(airdrop.target_contract),
                             topics: dynamicTopics,
                             fromBlock: fromBlock,
                             toBlock: latestBlock,
-                        });
+                        };
+                        logs = await alchemyClient.getLogs(getLogsParams);
                         break;
                     }
                     default:
