@@ -2,14 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
 // FIX: `FilterTopic` may not be exported in all viem versions, causing type errors. It is now defined locally. `BlockTag` is added for better type safety with `getLogs`.
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, BlockTag } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
 
-// FIX: Define `FilterTopic` locally to resolve import issues and aid TypeScript's type inference for `getLogs`.
-type FilterTopic = Hex | Hex[] | null;
+// FIX: Add local type definitions for FilterTopic and BlockTag to resolve type inference issues with viem's getLogs function. This is necessary when these types are not exported by the installed viem version.
+type FilterTopic = Hex | Hex[] | boolean | null;
+type BlockTag = 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized';
 
 // FIX: The call to viemKeccak256 was requesting 'bytes' which returns a Uint8Array, causing a type mismatch with Buffer.from which expected a string for 'hex' encoding. By removing the 'bytes' argument, viemKeccak256 defaults to returning a hex string, which is then correctly processed.
 // Fix: Correctly convert the hex string from viem's keccak256 (e.g., "0x...") to a Buffer
@@ -160,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { airdropId, userAddress } = req.body;
                 if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
 
-                const { rows: airdropRows } = await sql`SELECT network, topics, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
+                const { rows: airdropRows } = await sql`SELECT network, topic0, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 const airdrop = airdropRows[0];
 
@@ -189,13 +190,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const paddedUserAddress = pad(getAddress(userAddress), { size: 32 });
-                const rawTopics = airdrop.topics;
-                const airdropTopics = (typeof rawTopics === 'string' ? JSON.parse(rawTopics) : rawTopics) as Hex[];
+                const topic0 = airdrop.topic0;
+                if (!topic0) {
+                    return res.status(400).json({ message: 'Airdrop is missing event topic configuration.' });
+                }
                 const userTopicIndex = airdrop.user_topic_index || 2; // Default to 2 for safety
-                // FIX: Explicitly type `dynamicTopics` with `FilterTopic[]` from viem.
-                // This helps TypeScript select the correct overload for `getLogs` and resolves the type error
-                // where `topics` was considered an unknown property.
-                const dynamicTopics: FilterTopic[] = [airdropTopics[0]];
+                
+                const dynamicTopics: FilterTopic[] = [topic0 as Hex];
                 for (let i = 1; i < userTopicIndex; i++) {
                     dynamicTopics.push(null);
                 }
@@ -218,7 +219,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const latestBlock = await publicClient.getBlockNumber();
                         const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
                         
+                        // FIX: Add `abi: []` to hint to TypeScript's inference for viem's complex `getLogs` types, resolving an issue where `topics` was considered an unknown property.
                         logs = await alchemyClient.getLogs({
+                            abi: [],
                             address: getAddress(airdrop.target_contract),
                             topics: dynamicTopics,
                             fromBlock: fromBlock,
@@ -238,7 +241,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const fromBlock = latestBlock > blockRange ? latestBlock - blockRange : BigInt(0);
 
                         // Use Alchemy client for the expensive getLogs call
+                        // FIX: Add `abi: []` to hint to TypeScript's inference for viem's complex `getLogs` types, resolving an issue where `topics` was considered an unknown property.
                         logs = await alchemyClient.getLogs({
+                            abi: [],
                             address: getAddress(airdrop.target_contract),
                             topics: dynamicTopics,
                             fromBlock: fromBlock,
@@ -334,16 +339,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
                     }
                 } else if (type === 'Quest') {
-                     // Fix: Renamed `targetContractAddress` to `targetContract` to match the updated, more concise database schema.
-                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topics, userTopicIndex } = req.body;
+                     const { name, description, image, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex } = req.body;
                      const verifierAddress = process.env.VERIFIER_ADDRESS;
                      if (!verifierAddress) {
                         throw new Error("Verifier address is not configured on the server.");
                      }
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topics || !targetContract || !userTopicIndex) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
                      const { rows } = await client.sql`
-                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topics, user_topic_index, created_at)
-                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${JSON.stringify(topics)}, ${userTopicIndex}, NOW())
+                        INSERT INTO airdrops (name, description, image, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topic0, user_topic_index, created_at)
+                        VALUES (${name}, ${description || null}, ${image || ''}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${topic0}, ${userTopicIndex}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
                 } else {

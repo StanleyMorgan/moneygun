@@ -414,7 +414,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     contractAddress: newAirdropAddress,
                     recipientCount: Number(recipientCount), maxReward: Number(maxReward),
                     targetContract: getAddress(targetContract),
-                    topics: [topic0.trim()],
+                    topic0: topic0.trim(),
                     userTopicIndex: userTopicIndex,
                 };
             }

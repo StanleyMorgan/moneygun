@@ -41,8 +41,6 @@ export const getAirdrops = async (): Promise<Airdrop[]> => {
     createdAt: new Date(item.createdAt),
     startTime: item.startTime ? new Date(item.startTime) : undefined,
     endTime: item.endTime ? new Date(item.endTime) : undefined,
-    // Topics are stored as JSONB in the DB
-    topics: typeof item.topics === 'string' ? JSON.parse(item.topics) : item.topics,
   }));
 };
 
@@ -88,7 +86,6 @@ export const createAirdrop = async (airdropData: AirdropCreationPayload): Promis
     createdAt: new Date(camelCaseData.createdAt),
     startTime: camelCaseData.startTime ? new Date(camelCaseData.startTime) : undefined,
     endTime: camelCaseData.endTime ? new Date(camelCaseData.endTime) : undefined,
-    topics: typeof camelCaseData.topics === 'string' ? JSON.parse(camelCaseData.topics) : camelCaseData.topics,
   };
 };
 
