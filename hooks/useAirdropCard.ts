@@ -1,7 +1,7 @@
 // Fix: Refactor independent balance fetching to use wagmi's `useReadContract` hook instead of a manual `createPublicClient` call. This resolves a TypeScript type error with `client.readContract` and provides a cleaner, more robust implementation by leveraging wagmi's built-in data fetching capabilities.
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
-import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex, Chain } from 'viem';
+import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
