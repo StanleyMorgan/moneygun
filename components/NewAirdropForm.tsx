@@ -47,7 +47,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   // Quest-specific fields
   const [targetContract, setTargetContract] = useState('');
   const [topic0, setTopic0] = useState('');
-  const [userTopicIndex, setUserTopicIndex] = useState<1 | 2 | 3>(2);
+  const [userTopicIndex, setUserTopicIndex] = useState<1 | 2 | 3>(1);
   const [fetchedVerifierAddress, setFetchedVerifierAddress] = useState<`0x${string}` | null>(null);
   const [recipientCount, setRecipientCount] = useState(0);
   const [maxReward, setMaxReward] = useState(0);
@@ -485,25 +485,18 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
           <input type="text" id="topic0" value={topic0} onChange={e => setTopic0(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono" placeholder="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"/>
       </div>
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">User Address Location</label>
+        <label htmlFor="userTopicIndex" className="block text-xs font-medium text-slate-600 mb-1">User Address Location</label>
         <p className="text-xs text-slate-500 mb-2">In which topic is the user's indexed address located?</p>
-        <div className="flex flex-wrap gap-2 mt-2">
-            {( [1, 2, 3] as const ).map(index => (
-                <button
-                    type="button"
-                    key={index}
-                    onClick={() => setUserTopicIndex(index)}
-                    aria-pressed={userTopicIndex === index}
-                    className={`px-3 py-1.5 border rounded-lg text-sm font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                        userTopicIndex === index
-                            ? 'border-purple-600 bg-purple-50 text-slate-800'
-                            : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
-                    }`}
-                >
-                    Topic {index}
-                </button>
-            ))}
-        </div>
+        <select
+            id="userTopicIndex"
+            value={userTopicIndex}
+            onChange={e => setUserTopicIndex(Number(e.target.value) as 1 | 2 | 3)}
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+        >
+            <option value={1}>Topic 1</option>
+            <option value={2}>Topic 2</option>
+            <option value={3}>Topic 3</option>
+        </select>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
