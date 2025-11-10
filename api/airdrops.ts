@@ -4,7 +4,7 @@ import { MerkleTree } from 'merkletreejs';
 import { keccak256, parseUnits, getAddress, isAddress, pad, toHex, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
-import { AirdropStatus, AirdropType, WhitelistEntry } from '../types';
+import { AirdropStatus, AirdropType, WhitelistEntry } from '../types.js';
 
 // --- Environment Variable and Wallet Setup ---
 
@@ -31,7 +31,7 @@ const toCamelCase = (s: string) => s.replace(/_([a-z])/g, g => g[1].toUpperCase(
 const convertObjectKeysToCamelCase = (obj: any): any => {
     if (Array.isArray(obj)) {
         return obj.map(v => convertObjectKeysToCamelCase(v));
-    } else if (obj !== null && typeof obj === 'object') {
+    } else if (obj !== null && typeof obj === 'object' && obj.constructor === Object) {
         return Object.keys(obj).reduce((acc, key) => {
             acc[toCamelCase(key)] = convertObjectKeysToCamelCase(obj[key]);
             return acc;
@@ -113,14 +113,25 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
         }
     } else {
         // Fetch all airdrops
-        const { rows } = await sql`
-            SELECT 
-                a.*,
-                (SELECT COUNT(*)::int FROM claims c WHERE c.airdrop_id = a.id) as claimed_count
-            FROM airdrops a 
-            ORDER BY a.created_at DESC;
-        `;
-        return res.status(200).json(convertObjectKeysToCamelCase(rows));
+        try {
+            const { rows } = await sql`
+                SELECT 
+                    a.*,
+                    (SELECT COUNT(*)::int FROM claims c WHERE c.airdrop_id = a.id) as claimed_count
+                FROM airdrops a 
+                ORDER BY a.created_at DESC;
+            `;
+
+            // Log the raw data from the database BEFORE serialization to debug potential bigint issues
+            console.log('--- RAW DATABASE ROWS ---');
+            console.dir(rows, { depth: null });
+            console.log('-------------------------');
+
+            return res.status(200).json(convertObjectKeysToCamelCase(rows));
+        } catch (error: any) {
+            console.error('[GET all airdrops] Error fetching airdrops from DB:', error);
+            return res.status(500).json({ message: 'Failed to fetch airdrops due to a server error.', error: error.message });
+        }
     }
 }
 
