@@ -1,8 +1,10 @@
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
+import path from 'path';
+import { promises as fs } from 'fs';
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // This handler is now bimodal:
@@ -96,8 +98,15 @@ export default async function handler(request: Request) {
             const rewardText = `${rewardValue} ${airdropData.token_symbol || ''}`;
             const defaultImage = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
             const airdropImage = airdropData.image || defaultImage;
+            
+            // Load font from local file system, as recommended for Node.js runtime.
+            const fontPath = path.join(process.cwd(), 'public', 'Inter-Bold.ttf');
+            const fontFile = await fs.readFile(fontPath);
+            // FIX: Pass the Buffer directly. With the corrected type definitions for ImageResponse,
+            // the Buffer (which is a Uint8Array) can be used without problematic conversions to ArrayBuffer.
+            const fontData = fontFile;
 
-            const fontData = await fetch(`${origin}/Inter-Bold.ttf`).then((res) => res.arrayBuffer());
+
             const backgroundImageUrl = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';
 
             return new ImageResponse(

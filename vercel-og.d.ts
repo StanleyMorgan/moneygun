@@ -10,7 +10,10 @@ declare module '@vercel/og' {
         headers?: Record<string, string>;
         fonts?: {
           name: string;
-          data: ArrayBuffer;
+          // FIX: Updated `data` type to accept `Uint8Array` in addition to `ArrayBuffer`.
+          // The `@vercel/og` library supports this, and it's necessary for passing
+          // Node.js `Buffer` objects directly, as they are instances of `Uint8Array`.
+          data: ArrayBuffer | Uint8Array;
           style?: 'normal' | 'italic';
           weight?: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
         }[];
