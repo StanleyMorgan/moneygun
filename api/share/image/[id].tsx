@@ -53,7 +53,8 @@ export default async function handler(req: Request) {
         <div tw="flex flex-col items-center justify-center text-center bg-white/90 rounded-3xl p-10 px-16 shadow-2xl w-[85%] max-w-[900px]">
           <img
             src={image}
-            tw="w-44 h-44 rounded-2xl object-cover mb-5 border-2 border-gray-200"
+            tw="w-44 h-44 rounded-2xl mb-5 border-2 border-gray-200"
+            style={{ objectFit: 'cover' }}
           />
           <h1 tw="text-6xl text-gray-800 m-0 mb-4 leading-tight">{data.name}</h1>
           <p tw="text-5xl text-gray-600 m-0">

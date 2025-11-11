@@ -32,7 +32,10 @@ export default async function handler(req: Request) {
         title: 'View Airdrop',
         action: {
           type: 'launch_miniapp',
+          name: 'Moneygun',
           url: appUrl,
+          splashImageUrl: 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/logo128.png',
+          splashBackgroundColor: '#9333ea',
         },
       },
     };
