@@ -1,7 +1,5 @@
-// FIX: Add an explicit 'import type React' to ensure React types are available for JSX namespace augmentation.
-// This robustly makes the file a module and should resolve issues where the type declarations for custom elements
-// like 'appkit-button' were not being picked up by TypeScript.
-import type React from 'react';
+// FIX: Changed the React import statement from `import type` to `import * as React` to robustly ensure the React namespace is available for JSX augmentation. This resolves an issue where TypeScript was not recognizing the custom `appkit-button` and `appkit-connect-button` elements.
+import * as React from 'react';
 
 // FIX: This file must be a module to augment global types. The `export {}` at the end ensures this.
 declare global {
