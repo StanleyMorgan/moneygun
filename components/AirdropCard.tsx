@@ -105,8 +105,16 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     }
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    
+    // Improved share text generation
+    let rewardString = 'a reward';
+    if (airdrop.maxReward && airdrop.tokenSymbol) {
+      rewardString = `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`;
+    } else if (airdrop.tokenSymbol) {
+      rewardString = `some ${airdrop.tokenSymbol}`;
+    }
 
-    const shareText = `I just claimed ${airdrop.maxReward || 'tokens'} ${airdrop.tokenSymbol || ''} in the "${airdrop.name}" airdrop on Moneygun!`;
+    const shareText = `I just claimed ${rewardString} in the "${airdrop.name}" airdrop on Moneygun!`;
     const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/quest/${airdrop.id}`)}`;
 
 
