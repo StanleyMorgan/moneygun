@@ -106,6 +106,10 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
 
+    const shareText = `I just claimed ${airdrop.maxReward || 'tokens'} ${airdrop.tokenSymbol || ''} in the "${airdrop.name}" airdrop on Moneygun!`;
+    const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/quest/${airdrop.id}`)}`;
+
+
     return (
         <div className="relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
             <div className="flex items-start gap-4">
@@ -207,7 +211,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                                 Close
                             </button>
                             <a 
-                                href="https://farcaster.xyz/miniapps/_a3NifiAxJcF/moneygun"
+                                href={shareUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={closeSuccessModal}

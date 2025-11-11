@@ -13,6 +13,7 @@
     "@reown/appkit": "1.8.11",
     "@reown/appkit-adapter-wagmi": "1.8.11",
     "@tanstack/react-query": "^5.51.1",
+    "@vercel/og": "^0.6.2",
     "@vercel/postgres": "^0.10.0",
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.6.0",
