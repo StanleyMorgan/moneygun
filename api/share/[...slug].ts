@@ -7,7 +7,7 @@ export const config = {
 };
 
 // This handler is now bimodal:
-// 1. /api/share/quest/[id] -> Returns HTML for the Farcaster frame.
+// 1. /api/share/quest/[id] -> Returns HTML for the Farcaster Mini App embed.
 // 2. /api/share/image/[id] -> Returns the generated PNG image.
 export default async function handler(request: Request) {
     try {
@@ -25,23 +25,52 @@ export default async function handler(request: Request) {
             return new Response('Airdrop ID must be a number.', { status: 400 });
         }
 
-        // --- Route 1: Serve Farcaster Frame HTML ---
+        // --- Route 1: Serve Farcaster Mini App Embed HTML ---
         if (routeType === 'quest') {
             const imageUrl = `${origin}/api/share/image/${airdropId}`;
+            const appUrl = `${origin}/`;
+
+            const miniAppEmbed = {
+                version: "1",
+                imageUrl: imageUrl,
+                button: {
+                    title: "View Airdrop",
+                    action: {
+                        type: "launch_miniapp",
+                        url: appUrl,
+                    }
+                }
+            };
+
+            const frameEmbed = {
+                ...miniAppEmbed,
+                button: {
+                    ...miniAppEmbed.button,
+                    action: {
+                        ...miniAppEmbed.button.action,
+                        type: "launch_frame", // For backward compatibility
+                    }
+                }
+            };
+
+            const miniAppContent = JSON.stringify(miniAppEmbed).replace(/"/g, '&quot;');
+            const frameContent = JSON.stringify(frameEmbed).replace(/"/g, '&quot;');
+            
             const html = `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="utf-8" />
-                    <meta name="viewport" content="width=device-width, initial-scale=1" />
-                    <meta property="og:title" content="Moneygun Airdrop Claim" />
+                    <title>Moneygun Airdrop</title>
+                    <meta property="og:title" content="Moneygun Airdrop" />
                     <meta property="og:image" content="${imageUrl}" />
-                    <meta property="fc:frame" content="vNext" />
-                    <meta property="fc:frame:image" content="${imageUrl}" />
+                    
+                    <meta name="fc:miniapp" content="${miniAppContent}" />
+                    <meta name="fc:frame" content="${frameContent}" />
                 </head>
                 <body>
                     <h1>Moneygun Shareable Image</h1>
-                    <p>This is a Farcaster Frame. View on a compatible client.</p>
+                    <p>This is a Farcaster Mini App embed. View on a compatible client.</p>
                 </body>
                 </html>
             `;
@@ -84,7 +113,7 @@ export default async function handler(request: Request) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             backgroundImage: `url(${backgroundImageUrl})`,
-                            backgroundSize: '1200px 630px',
+                            backgroundSize: '1200px 800px',
                             fontFamily: '"Inter"',
                         },
                     },
@@ -102,6 +131,7 @@ export default async function handler(request: Request) {
                                 padding: '40px 60px',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
                                 width: '85%',
+                                maxWidth: '900px',
                             },
                         },
                         React.createElement('img', {
@@ -141,8 +171,11 @@ export default async function handler(request: Request) {
                 ),
                 {
                     width: 1200,
-                    height: 630,
+                    height: 800, // 3:2 aspect ratio
                     fonts: [{ name: 'Inter', data: fontData, style: 'normal' }],
+                    headers: {
+                        'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+                    },
                 },
             );
         }
