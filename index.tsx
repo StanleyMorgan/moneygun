@@ -1,3 +1,5 @@
+// FIX: Added a triple-slash directive to the main entry point to ensure global type definitions are loaded.
+/// <reference path="./global.d.ts" />
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

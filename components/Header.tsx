@@ -1,7 +1,3 @@
-// FIX: Add a triple-slash directive to explicitly include the global type definitions.
-// This is necessary because the TypeScript compiler isn't automatically discovering
-// the 'global.d.ts' file, leading to errors about unknown JSX elements.
-/// <reference path="../global.d.ts" />
 import React from 'react';
 import { useAccount } from 'wagmi';
 
