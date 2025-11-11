@@ -1,3 +1,5 @@
+// FIX: Added a triple-slash directive to ensure this file can see the global type definitions for custom web components.
+/// <reference path="../global.d.ts" />
 import React from 'react';
 import { useAccount } from 'wagmi';
 
