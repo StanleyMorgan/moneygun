@@ -1,5 +1,3 @@
-/// <reference types="react" />
-
 // FIX: Add an explicit 'import type React' to ensure React types are available for JSX namespace augmentation.
 // This robustly makes the file a module and should resolve issues where the type declarations for custom elements
 // like 'appkit-button' were not being picked up by TypeScript.
