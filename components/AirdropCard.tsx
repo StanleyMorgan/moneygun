@@ -160,7 +160,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                         </p>
                     </div>
                 ) : (
-                    <div><p className="text-slate-500">Reward</p><p className="font-medium text-slate-800">{airdrop.maxReward ? `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`: 'Varies'}</p></div>
+                    <div><p className="text-slate-500">Reward</p><p className="font-medium text-slate-800">{airdrop.maxReward ? `Up to ${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`: 'Varies'}</p></div>
                 )}
             </div>
 

@@ -279,12 +279,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let createdAirdrop;
 
                 if (type === 'Whitelist') {
-                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, whitelist, contractAddress, merkleRoot, recipientCount } = req.body;
+                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, whitelist, contractAddress, merkleRoot, recipientCount, maxReward } = req.body;
                     if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !merkleRoot) return res.status(400).json({ message: 'Missing required fields for Whitelist airdrop.' });
                     
                     const { rows } = await client.sql`
-                        INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, creator_address, start_time, end_time, contract_address, merkle_root, created_at)
-                        VALUES (${name}, ${description || null}, ${image || null}, ${action || null}, 'Whitelist', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}, NOW())
+                        INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, creator_address, start_time, end_time, contract_address, merkle_root, max_reward, created_at)
+                        VALUES (${name}, ${description || null}, ${image || null}, ${action || null}, 'Whitelist', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${merkleRoot}, ${maxReward ? Number(maxReward) : null}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
                     

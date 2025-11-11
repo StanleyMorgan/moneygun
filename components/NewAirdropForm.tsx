@@ -417,6 +417,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
             let payload: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress' | 'verifierAddress'> & { whitelist?: WhitelistEntry[] };
 
             if (airdropType === AirdropType.Whitelist) {
+                const whitelistMaxReward = whitelist.reduce((max, entry) => Math.max(max, Number(entry.amount)), 0);
                 payload = {
                     name, description, image, action, type: AirdropType.Whitelist,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
@@ -424,6 +425,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     whitelist, contractAddress: newAirdropAddress, merkleRoot: merkleRoot!,
                     recipientCount: whitelist.length,
+                    maxReward: whitelistMaxReward,
                 };
             } else { // Quest
                 payload = {
