@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
 import path from 'path';
@@ -10,20 +11,21 @@ export const config = {
 // This handler is now bimodal:
 // 1. /api/share/quest/[id] -> Returns HTML for the Farcaster Mini App embed.
 // 2. /api/share/image/[id] -> Returns the generated PNG image.
-export default async function handler(request: Request) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        const { pathname, origin } = new URL(request.url);
+        const url = new URL(req.url!, `https://${req.headers.host}`);
+        const { pathname, origin } = url;
         const pathSegments = pathname.split('/'); // e.g., ['', 'api', 'share', 'quest', '123']
 
         if (pathSegments.length < 5) {
-            return new Response('Invalid URL format.', { status: 400 });
+            return res.status(400).send('Invalid URL format.');
         }
 
         const routeType = pathSegments[3]; // 'quest' or 'image'
         const airdropId = parseInt(pathSegments[4], 10);
 
         if (isNaN(airdropId)) {
-            return new Response('Airdrop ID must be a number.', { status: 400 });
+            return res.status(400).send('Airdrop ID must be a number.');
         }
 
         // --- Route 1: Serve Farcaster Mini App Embed HTML ---
@@ -75,10 +77,7 @@ export default async function handler(request: Request) {
                 </body>
                 </html>
             `;
-            return new Response(html, {
-                headers: { 'Content-Type': 'text/html' },
-                status: 200,
-            });
+            return res.status(200).setHeader('Content-Type', 'text/html').send(html);
         }
 
         // --- Route 2: Generate and Serve the Image ---
@@ -90,7 +89,7 @@ export default async function handler(request: Request) {
             `;
 
             if (rows.length === 0) {
-                return new Response(`Airdrop with ID ${airdropId} not found.`, { status: 404 });
+                return res.status(404).send(`Airdrop with ID ${airdropId} not found.`);
             }
             const airdropData = rows[0];
             
@@ -99,17 +98,12 @@ export default async function handler(request: Request) {
             const defaultImage = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
             const airdropImage = airdropData.image || defaultImage;
             
-            // Load font from local file system, as recommended for Node.js runtime.
             const fontPath = path.join(process.cwd(), 'public', 'Inter-Bold.ttf');
-            const fontFile = await fs.readFile(fontPath);
-            // FIX: Pass the Buffer directly. With the corrected type definitions for ImageResponse,
-            // the Buffer (which is a Uint8Array) can be used without problematic conversions to ArrayBuffer.
-            const fontData = fontFile;
-
+            const fontData = await fs.readFile(fontPath);
 
             const backgroundImageUrl = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';
 
-            return new ImageResponse(
+            const imageResponse = new ImageResponse(
                 (
                     <div
                         tw="h-full w-full flex flex-col items-center justify-center"
@@ -143,13 +137,21 @@ export default async function handler(request: Request) {
                     },
                 },
             );
+            
+            // Convert Web API Response to Node.js response
+            res.status(200);
+            imageResponse.headers.forEach((value, key) => {
+                res.setHeader(key, value);
+            });
+            const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+            return res.send(imageBuffer);
         }
 
         // --- Fallback for invalid routes ---
-        return new Response('Invalid route. Use /quest/[id] or /image/[id].', { status: 400 });
+        return res.status(400).send('Invalid route. Use /quest/[id] or /image/[id].');
 
     } catch (e: any) {
         console.error(e);
-        return new Response(`Failed to process request: ${e.message}`, { status: 500 });
+        return res.status(500).send(`Failed to process request: ${e.message}`);
     }
 }
