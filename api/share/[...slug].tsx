@@ -1,6 +1,5 @@
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
-import React from 'react';
 
 export const config = {
   runtime: 'edge',
