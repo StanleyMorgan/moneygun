@@ -1,13 +1,27 @@
 /// <reference types="react" />
 
+// FIX: Add an explicit 'import type React' to ensure React types are available for JSX namespace augmentation.
+// This robustly makes the file a module and should resolve issues where the type declarations for custom elements
+// like 'appkit-button' were not being picked up by TypeScript.
+import type React from 'react';
+
 // FIX: This file must be a module to augment global types. The `export {}` at the end ensures this.
-// The `declare global` block is then used to extend existing global interfaces. This resolves the
-// error "Top-level declarations in .d.ts files must start with either a 'declare' or 'export' modifier."
 declare global {
-  // Augment the NodeJS namespace to include environment variables for Vite.
+  // Augment React's HTMLAttributes to include the `tw` prop for @vercel/og's Tailwind-like styling.
+  namespace React {
+    interface HTMLAttributes<T> {
+      tw?: string;
+    }
+  }
+  
+  // Augment the NodeJS namespace to include environment variables and missing process types.
   namespace NodeJS {
     interface ProcessEnv {
       readonly REOWN_PROJECT_ID: string;
+    }
+    // Add type for process.cwd() to resolve potential type errors in Vercel functions
+    interface Process {
+      cwd(): string;
     }
   }
 

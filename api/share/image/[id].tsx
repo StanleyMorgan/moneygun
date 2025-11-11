@@ -1,13 +1,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
-import path from 'path';
-import { promises as fs } from 'fs';
 import { Buffer } from 'buffer';
 
 export const config = {
   runtime: 'nodejs',
 };
+
+// Function to fetch font data, memoized for performance within the same function invocation context.
+let fontDataPromise: Promise<ArrayBuffer> | null = null;
+const getFontData = () => {
+    if (!fontDataPromise) {
+        // Fetching from a reliable CDN is more robust for serverless environments.
+        const fontUrl = 'https://rsms.me/inter/font-files/Inter-Bold.otf?v=3.19';
+        console.log(`[IMAGE API] Fetching font from: ${fontUrl}`);
+        fontDataPromise = fetch(fontUrl).then(res => {
+            if (!res.ok) {
+                // Reset promise if fetch failed, so we can retry
+                fontDataPromise = null; 
+                throw new Error(`Failed to fetch font: ${res.statusText}`);
+            }
+            console.log(`[IMAGE API] Font fetched successfully.`);
+            return res.arrayBuffer();
+        });
+    }
+    return fontDataPromise;
+};
+
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[IMAGE API] Request received for: ${req.url}`);
@@ -16,22 +35,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const airdropId = parseInt(id as string, 10);
 
         if (isNaN(airdropId)) {
-            console.error(`[IMAGE API] Invalid Airdrop ID: ${id}`);
             return res.status(400).send('Airdrop ID must be a number.');
         }
         console.log(`[IMAGE API] Fetching data for airdrop ID: ${airdropId}`);
+        
+        // Fetch airdrop data and font data in parallel for performance
+        const [airdropResult, fontData] = await Promise.all([
+            sql`SELECT name, image, max_reward, token_symbol FROM airdrops WHERE id = ${airdropId};`,
+            getFontData()
+        ]);
 
-        const { rows } = await sql`
-            SELECT name, image, max_reward, token_symbol 
-            FROM airdrops 
-            WHERE id = ${airdropId};
-        `;
-
-        if (rows.length === 0) {
-            console.error(`[IMAGE API] Airdrop not found for ID: ${airdropId}`);
+        if (airdropResult.rows.length === 0) {
             return res.status(404).send(`Airdrop with ID ${airdropId} not found.`);
         }
-        const airdropData = rows[0];
+        
+        const airdropData = airdropResult.rows[0];
         console.log(`[IMAGE API] Data found:`, airdropData);
         
         const rewardValue = airdropData.max_reward ? new Intl.NumberFormat('en-US').format(airdropData.max_reward) : 'Tokens';
@@ -39,14 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const defaultImage = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
         const airdropImage = airdropData.image || defaultImage;
         
-        const fontPath = path.join(process.cwd(), 'public', 'Inter-Bold.ttf');
-        console.log(`[IMAGE API] Loading font from: ${fontPath}`);
-        // FIX: The `fs.readFile` function returns a `Buffer`, which is an instance of `Uint8Array`.
-        // The previous code was attempting to slice the underlying ArrayBuffer, which could be a
-        // `SharedArrayBuffer`, causing a type mismatch. Passing the Buffer directly resolves this.
-        const fontData = await fs.readFile(fontPath);
-        console.log(`[IMAGE API] Font loaded successfully.`);
-
         const backgroundImageUrl = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';
 
         console.log(`[IMAGE API] Generating ImageResponse...`);
@@ -77,10 +87,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ),
             {
                 width: 1200,
-                height: 800, // 3:2 aspect ratio
+                height: 800,
                 fonts: [{ name: 'Inter', data: fontData, style: 'normal' }],
                 headers: {
-                    'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+                    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300',
                 },
             },
         );
