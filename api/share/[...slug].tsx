@@ -102,72 +102,29 @@ export default async function handler(request: Request) {
             const backgroundImageUrl = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';
 
             return new ImageResponse(
-                React.createElement(
-                    'div',
-                    {
-                        style: {
-                            height: '100%',
-                            width: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                (
+                    <div
+                        tw="h-full w-full flex flex-col items-center justify-center"
+                        style={{
                             backgroundImage: `url(${backgroundImageUrl})`,
                             backgroundSize: '1200px 800px',
                             fontFamily: '"Inter"',
-                        },
-                    },
-                    React.createElement(
-                        'div',
-                        {
-                            style: {
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                textAlign: 'center',
-                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                borderRadius: 24,
-                                padding: '40px 60px',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                                width: '85%',
-                                maxWidth: '900px',
-                            },
-                        },
-                        React.createElement('img', {
-                            src: airdropImage,
-                            width: '180',
-                            height: '180',
-                            style: {
-                                borderRadius: 16,
-                                objectFit: 'cover',
-                                marginBottom: 20,
-                                border: '2px solid #E5E7EB',
-                            },
-                        }),
-                        React.createElement(
-                            'h1',
-                            {
-                                style: {
-                                    fontSize: 60,
-                                    color: '#1F2937',
-                                    margin: '0 0 15px 0',
-                                    lineHeight: 1.2,
-                                },
-                            },
-                            airdropData.name
-                        ),
-                        React.createElement(
-                            'p',
-                            { style: { fontSize: 48, color: '#4B5563', margin: 0 } },
-                            'Reward: ',
-                            React.createElement(
-                                'span',
-                                { style: { color: '#9333ea', fontWeight: 'bold' } },
-                                rewardText
-                            )
-                        )
-                    )
+                        }}
+                    >
+                        <div tw="flex flex-col items-center justify-center text-center bg-white/90 rounded-3xl p-10 px-16 shadow-2xl w-[85%] max-w-[900px]">
+                            <img
+                                src={airdropImage}
+                                tw="w-44 h-44 rounded-2xl object-cover mb-5 border-2 border-gray-200"
+                                alt=""
+                            />
+                            <h1 tw="text-6xl text-gray-800 m-0 mb-4 leading-tight">
+                                {airdropData.name}
+                            </h1>
+                            <p tw="text-5xl text-gray-600 m-0">
+                                Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
+                            </p>
+                        </div>
+                    </div>
                 ),
                 {
                     width: 1200,
