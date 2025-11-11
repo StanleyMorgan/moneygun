@@ -115,7 +115,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     }
 
     const shareText = `I just claimed ${rewardString} in the "${airdrop.name}" airdrop on Moneygun!`;
-    const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/quest/${airdrop.id}`)}`;
+    const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/frame/${airdrop.id}`)}`;
 
 
     return (
