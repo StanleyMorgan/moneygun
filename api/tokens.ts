@@ -1,3 +1,4 @@
+console.log('[Vercel API] tokens.ts module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 

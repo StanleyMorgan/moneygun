@@ -1,3 +1,4 @@
+console.log('[Vercel API] image/[id].tsx module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';

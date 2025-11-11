@@ -1,3 +1,4 @@
+console.log('[Vercel API] airdrops.ts module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
