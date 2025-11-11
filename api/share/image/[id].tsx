@@ -2,15 +2,14 @@ import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
 
 export const config = {
-  runtime: 'edge', // важно!
+  runtime: 'edge', 
 };
 
-// кешируем шрифт в глобальной области (Edge runtime допускает)
 let fontData: ArrayBuffer | null = null;
 
 async function getFontData() {
   if (!fontData) {
-    const res = await fetch('https://rsms.me/inter/font-files/Inter-Bold.otf?v=3.19');
+    const res = await fetch('https://raw.githubusercontent.com/StanleyMorgan/graphics/refs/heads/main/fonts/Inter-Bold.ttf');
     if (!res.ok) throw new Error('Failed to fetch font');
     fontData = await res.arrayBuffer();
   }
