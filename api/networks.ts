@@ -10,7 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         // Order by is_testnet descending to show mainnets first, then by name
-        const { rows } = await sql`SELECT * FROM networks ORDER BY is_testnet ASC, name ASC;`;
+        const { rows } = await sql`SELECT * FROM networks WHERE active = true ORDER BY is_testnet ASC, name ASC;`;
         return res.status(200).json(rows);
     } catch (error) {
         console.error('Failed to fetch networks:', error);

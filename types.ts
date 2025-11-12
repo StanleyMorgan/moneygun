@@ -27,6 +27,7 @@ export interface Network {
   rpcUrlPublic: string;
   iconUrl?: string;
   isTestnet: boolean;
+  active: boolean;
 }
 
 export interface Token {

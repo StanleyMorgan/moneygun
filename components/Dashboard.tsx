@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
-import { Airdrop, AirdropStatus } from '../types';
+import { Airdrop, AirdropStatus, Network } from '../types';
 import AirdropCard from './AirdropCard';
 import { getComputedStatus } from '../hooks/useAirdropCard';
 import { PlusIcon } from './icons/PlusIcon';
@@ -11,6 +11,7 @@ interface DashboardProps {
   onCreateNew: () => void;
   onAirdropUpdate: (airdropId: number, updatedFields: Partial<Airdrop>) => void;
   onAirdropDelete: (airdropId: number) => void;
+  activeNetworks: Network[];
 }
 
 const statusOrder: Record<AirdropStatus, number> = {
@@ -41,11 +42,20 @@ const sortAirdrops = (airdrops: Airdrop[]) => {
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropUpdate, onAirdropDelete }) => {
+const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropUpdate, onAirdropDelete, activeNetworks }) => {
   const [activeTab, setActiveTab] = useState<'earn' | 'manage'>('earn');
   const { address, isConnected } = useAccount();
 
-  const earnAirdrops = sortAirdrops(airdrops.filter(ad => ad.status !== AirdropStatus.Draft));
+  const activeNetworkKeys = new Set(activeNetworks.map(n => n.networkKey));
+
+  const earnAirdrops = sortAirdrops(
+    airdrops.filter(ad => 
+      ad.status !== AirdropStatus.Draft &&
+      ad.network &&
+      activeNetworkKeys.has(ad.network)
+    )
+  );
+
   const manageAirdrops = sortAirdrops(
     isConnected && address
       ? airdrops.filter(ad => ad.creatorAddress && getAddress(ad.creatorAddress) === getAddress(address))
