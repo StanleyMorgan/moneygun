@@ -50,11 +50,13 @@ export default async function handler(req: Request) {
           fontFamily: '"Inter"',
         }}
       >
-        {/* ✅ Container positioned at 75% height */}
+        {/* ✅ Centered container at (50%, 75%) */}
         <div
-          tw="absolute left-1/2 transform -translate-x-1/2 flex flex-row items-center bg-white/90 rounded-3xl p-10 shadow-2xl"
+          tw="absolute flex flex-row items-center bg-white/90 rounded-3xl p-10 shadow-2xl"
           style={{
-            top: '75%', // center at 75% height
+            top: '75%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
           }}
         >
           {/* ✅ Logo aligned to the left edge */}
@@ -83,5 +85,4 @@ export default async function handler(req: Request) {
       },
     },
   );
-
 }
