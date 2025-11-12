@@ -50,26 +50,28 @@ export default async function handler(req: Request) {
           fontFamily: '"Inter"',
         }}
       >
-        {/* ✅ Centered container at (50%, 75%) */}
+        {/* Centered container at (50%, 75%) */}
         <div
-          tw="absolute flex flex-row items-center bg-white/90 rounded-3xl p-10 shadow-2xl"
+          tw="absolute flex flex-row items-center bg-white/90 rounded-3xl p-8 shadow-2xl"
           style={{
             top: '75%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
+            maxWidth: '85%',
           }}
         >
-          {/* ✅ Logo aligned to the left edge */}
+          {/* Logo aligned to the left edge */}
           <img
             src={image}
-            tw="w-40 h-40 rounded-2xl border-2 border-gray-200 mr-8 flex-shrink-0"
+            tw="w-36 h-36 rounded-2xl border-2 border-gray-200 mr-6 flex-shrink-0"
             style={{ objectFit: 'cover' }}
           />
 
-          {/* ✅ Dynamic width based on text length */}
           <div tw="flex flex-col items-start justify-center">
-            <h1 tw="text-6xl text-gray-800 m-0 mb-4 leading-tight text-left">{data.name}</h1>
-            <p tw="text-5xl text-gray-600 m-0 text-left">
+            <h1 tw="text-[46px] text-gray-800 m-0 mb-3 leading-tight text-left">
+              {data.name}
+            </h1>
+            <p tw="text-[38px] text-gray-600 m-0 text-left">
               Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
             </p>
           </div>
@@ -85,4 +87,5 @@ export default async function handler(req: Request) {
       },
     },
   );
+
 }
