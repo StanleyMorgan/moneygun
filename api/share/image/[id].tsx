@@ -50,21 +50,20 @@ export default async function handler(req: Request) {
           fontFamily: '"Inter"',
         }}
       >
-        {/* Dynamic white rectangle centered at 75% height */}
+        {/* Centered container at 75% height */}
         <div
           tw="absolute flex flex-row items-center bg-white/90 rounded-3xl p-8 shadow-2xl"
           style={{
             top: '75%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 'fit-content',
-            maxWidth: '90%',
+            maxWidth: '85%', // max width to prevent overflow
           }}
         >
-          {/* Drop image pinned to the left */}
+          {/* Logo aligned to the left edge */}
           <img
             src={image}
-            tw="w-32 h-32 rounded-2xl border-2 border-gray-200 mr-6 flex-shrink-0"
+            tw="w-36 h-36 rounded-2xl border-2 border-gray-200 mr-6 flex-shrink-0"
             style={{ objectFit: 'cover' }}
           />
 
@@ -91,4 +90,5 @@ export default async function handler(req: Request) {
       },
     },
   );
+
 }
