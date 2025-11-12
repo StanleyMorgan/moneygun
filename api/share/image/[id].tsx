@@ -57,7 +57,7 @@ export default async function handler(req: Request) {
             top: '75%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            maxWidth: '85%',
+            maxWidth: '90%',
           }}
         >
           {/* Logo aligned to the left edge */}
@@ -68,10 +68,13 @@ export default async function handler(req: Request) {
           />
 
           <div tw="flex flex-col items-start justify-center">
-            <h1 tw="text-[46px] text-gray-800 m-0 mb-3 leading-tight text-left">
+            <h1
+              tw="text-[44px] text-gray-800 m-0 mb-3 leading-tight text-left"
+              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
               {data.name}
             </h1>
-            <p tw="text-[38px] text-gray-600 m-0 text-left">
+            <p tw="text-[36px] text-gray-600 m-0 text-left">
               Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
             </p>
           </div>
@@ -87,5 +90,4 @@ export default async function handler(req: Request) {
       },
     },
   );
-
 }
