@@ -57,7 +57,7 @@ export default async function handler(req: Request) {
             top: '75%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            maxWidth: '85%', // max width to prevent overflow
+            width: 'auto', // width depends on content
           }}
         >
           {/* Logo aligned to the left edge */}
@@ -90,5 +90,4 @@ export default async function handler(req: Request) {
       },
     },
   );
-
 }
