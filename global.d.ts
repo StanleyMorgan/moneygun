@@ -1,6 +1,3 @@
-// FIX: Changed the React import statement from `import type` to `import * as React` to robustly ensure the React namespace is available for JSX augmentation. This resolves an issue where TypeScript was not recognizing the custom `appkit-button` and `appkit-connect-button` elements.
-import * as React from 'react';
-
 // FIX: This file must be a module to augment global types. The `export {}` at the end ensures this.
 declare global {
   // Augment React's HTMLAttributes to include the `tw` prop for @vercel/og's Tailwind-like styling.
