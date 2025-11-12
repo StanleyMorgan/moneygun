@@ -32,7 +32,8 @@ declare global {
         label: string;
         // FIX: Made `size` a required property to align with the base type definition from `@reown/appkit`.
         size: 'sm' | 'md';
-        loadingLabel?: string;
+        // FIX: Made `loadingLabel` a required property to align with the base type definition and resolve the type incompatibility.
+        loadingLabel: string;
       };
       // Add appkit-button for displaying connected state
       'appkit-button': React.DetailedHTMLProps<

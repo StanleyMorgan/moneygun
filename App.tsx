@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -13,10 +11,11 @@ import { useAccount } from 'wagmi';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
+  const [dashboardTab, setDashboardTab] = useState<'earn' | 'manage'>('earn');
   const [airdrops, setAirdrops] = useState<Airdrop[]>([]);
   const [networks, setNetworks] = useState<Network[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
 
   useEffect(() => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
@@ -55,6 +54,7 @@ const App: React.FC = () => {
       const newAirdrop = await createAirdrop(airdropPayload);
       setAirdrops(prevAirdrops => [newAirdrop, ...prevAirdrops]);
       setView('dashboard');
+      setDashboardTab('manage');
     } catch (error) {
       console.error("Failed to create airdrop:", error);
       alert(`Failed to create airdrop: ${error instanceof Error ? error.message : String(error)}`);
@@ -74,7 +74,14 @@ const App: React.FC = () => {
   }, []);
 
   const handleCreateNew = () => setView('new-airdrop');
-  const handleBackToDashboard = () => setView('dashboard');
+  const handleEarnClick = () => {
+    setView('dashboard');
+    setDashboardTab('earn');
+  };
+  const handleManageClick = () => {
+    setView('dashboard');
+    setDashboardTab('manage');
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -86,20 +93,60 @@ const App: React.FC = () => {
     }
 
     if (view === 'dashboard') {
-      return <Dashboard airdrops={airdrops} onCreateNew={handleCreateNew} onAirdropUpdate={handleAirdropUpdate} onAirdropDelete={handleDeleteAirdrop} activeNetworks={networks} />;
+      return <Dashboard airdrops={airdrops} onAirdropUpdate={handleAirdropUpdate} onAirdropDelete={handleDeleteAirdrop} activeNetworks={networks} activeTab={dashboardTab} />;
     }
 
     if (view === 'new-airdrop') {
-      return <NewAirdropForm onAddAirdrop={handleAddAirdrop} onBack={handleBackToDashboard} />;
+      return <NewAirdropForm onAddAirdrop={handleAddAirdrop} />;
     }
 
     return null;
   }
 
+  const TabSwitcher = () => (
+    <div className="flex items-center justify-center mb-6">
+      <div className="bg-slate-200 p-1 rounded-lg flex items-center space-x-1">
+        <button
+          onClick={handleEarnClick}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
+            view === 'dashboard' && dashboardTab === 'earn'
+              ? 'bg-purple-600 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Earn
+        </button>
+        <button
+          onClick={handleManageClick}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
+            view === 'dashboard' && dashboardTab === 'manage'
+              ? 'bg-purple-600 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Manage
+        </button>
+        {isConnected && (
+          <button
+            onClick={handleCreateNew}
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
+              view === 'new-airdrop'
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Create
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       <Header />
       <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 w-full flex-grow">
+        <TabSwitcher />
         {renderContent()}
       </main>
       <Footer />

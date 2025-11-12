@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry, Network, Token } from '../types';
-import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import Papa from 'papaparse';
 import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
@@ -9,7 +8,6 @@ import * as api from '../lib/api';
 
 interface NewAirdropFormProps {
   onAddAirdrop: (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'>) => void;
-  onBack: () => void;
 }
 
 type FormStatus = 'idle' | 'generatingMerkle' | 'creatingContract' | 'waitingForCreation' | 'settingMerkle' | 'waitingForMerkle' | 'saving' | 'success' | 'error';
@@ -26,7 +24,7 @@ const statusMessages: Record<FormStatus, string> = {
     error: 'Try Again',
 };
 
-const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack }) => {
+const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -533,188 +531,179 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-1 rounded-md hover:bg-slate-100">
-          <ArrowLeftIcon className="w-5 h-5 text-slate-600" />
-        </button>
-        <h1 className="text-xl font-semibold text-slate-800">New Airdrop</h1>
+    <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-6 space-y-6">
+      
+      <div className="space-y-4">
+          <h2 className="text-base font-semibold text-slate-700">Airdrop Details</h2>
+          <div>
+              <label htmlFor="name" className="block text-xs font-medium text-slate-600 mb-1">Name</label>
+              <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required maxLength={30} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+              <p className="text-right text-xs text-slate-500 mt-1">{name.length} / 30</p>
+          </div>
+          <div>
+              <label htmlFor="description" className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+              <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} required maxLength={140} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+              <p className="text-right text-xs text-slate-500 mt-1">{description.length} / 140</p>
+          </div>
+          <div>
+            <label htmlFor="image" className="block text-xs font-medium text-slate-600 mb-1">Airdrop Icon URL (Optional)</label>
+            <div className="flex items-center gap-4">
+              <input
+                type="url"
+                id="image"
+                value={image}
+                onChange={e => setImage(e.target.value)}
+                placeholder="https://.../icon.svg"
+                className="flex-grow px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <img
+                src={image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
+                alt="Airdrop icon preview"
+                className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg') {
+                    target.src = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
+                  }
+                }}
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG file. If blank, a default icon is used.</p>
+          </div>
+           <div>
+            <label htmlFor="action" className="block text-xs font-medium text-slate-600 mb-1">Action URL (Optional)</label>
+              <input
+                  type="url"
+                  id="action"
+                  value={action}
+                  onChange={e => setAction(e.target.value)}
+                  placeholder="https://farcaster.xyz/..."
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <p className="text-xs text-slate-500 mt-1">Must be a link to <code>farcaster.xyz</code> or <code>base.app</code>.</p>
+          </div>
+          <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Airdrop Type</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                      type="button"
+                      onClick={() => setAirdropType(AirdropType.Whitelist)}
+                      aria-pressed={airdropType === AirdropType.Whitelist}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                          airdropType === AirdropType.Whitelist
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                      }`}
+                  >
+                      <span className="font-semibold text-sm text-slate-800">Whitelist</span>
+                  </button>
+                  <button
+                      type="button"
+                      onClick={() => setAirdropType(AirdropType.Quest)}
+                      aria-pressed={airdropType === AirdropType.Quest}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                          airdropType === AirdropType.Quest
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                      }`}
+                  >
+                      <span className="font-semibold text-sm text-slate-800">Quest</span>
+                  </button>
+              </div>
+          </div>
+      </div>
+      <div className="space-y-4">
+          <h2 className="text-base font-semibold text-slate-700">Token & Network</h2>
+          <div className="space-y-4">
+              <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Network</label>
+                   {networks.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                          {networks.map(net => (
+                              <button
+                                  type="button"
+                                  key={net.networkKey}
+                                  onClick={() => handleNetworkSelect(net.networkKey)}
+                                  aria-pressed={network === net.networkKey}
+                                  className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                      network === net.networkKey
+                                          ? 'border-purple-600 bg-purple-50'
+                                          : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                                  }`}
+                              >
+                                  <img src={net.iconUrl} alt={`${net.name} logo`} className="w-5 h-5" />
+                                  <span className="font-semibold text-sm text-slate-800">{net.name}</span>
+                              </button>
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                         <p className="text-xs text-slate-500 animate-pulse">Loading networks...</p>
+                     </div>
+                  )}
+              </div>
+              <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>
+                  {isLoadingTokens ? (
+                       <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                         <p className="text-xs text-slate-500 animate-pulse">Loading tokens...</p>
+                     </div>
+                  ) : tokens.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                          {tokens.map(token => (
+                              <button
+                                  type="button"
+                                  key={token.contractAddress}
+                                  onClick={() => setSelectedTokenAddress(token.contractAddress)}
+                                  aria-pressed={selectedTokenAddress === token.contractAddress}
+                                  className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                                      selectedTokenAddress === token.contractAddress
+                                          ? 'border-purple-600 bg-purple-50'
+                                          : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                                  }`}
+                              >
+                                  <img src={token.iconUrl} alt={`${token.symbol} logo`} className="w-5 h-5" />
+                                  <span className="font-semibold text-sm text-slate-800">{token.symbol}</span>
+                              </button>
+                          ))}
+                      </div>
+                  ) : (
+                     <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                         <p className="text-xs text-slate-500">Select a network to see available tokens.</p>
+                     </div>
+                  )}
+              </div>
+          </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-6 space-y-6">
-        
-        <div className="space-y-4">
-            <h2 className="text-base font-semibold text-slate-700">Airdrop Details</h2>
-            <div>
-                <label htmlFor="name" className="block text-xs font-medium text-slate-600 mb-1">Name</label>
-                <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required maxLength={30} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                <p className="text-right text-xs text-slate-500 mt-1">{name.length} / 30</p>
-            </div>
-            <div>
-                <label htmlFor="description" className="block text-xs font-medium text-slate-600 mb-1">Description</label>
-                <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} required maxLength={140} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                <p className="text-right text-xs text-slate-500 mt-1">{description.length} / 140</p>
-            </div>
-            <div>
-              <label htmlFor="image" className="block text-xs font-medium text-slate-600 mb-1">Airdrop Icon URL (Optional)</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="url"
-                  id="image"
-                  value={image}
-                  onChange={e => setImage(e.target.value)}
-                  placeholder="https://.../icon.svg"
-                  className="flex-grow px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <img
-                  src={image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'}
-                  alt="Airdrop icon preview"
-                  className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src !== 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg') {
-                      target.src = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
-                    }
-                  }}
-                />
+      {airdropType === AirdropType.Whitelist ? renderWhitelistFields() : renderQuestFields()}
+
+      <div className="space-y-4">
+          <h2 className="text-base font-semibold text-slate-700">Schedule</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                  <label htmlFor="startTime" className="block text-xs font-medium text-slate-600 mb-1">Start Time (UTC)</label>
+                  <input type="datetime-local" id="startTime" value={startTime} onChange={e => setStartTime(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
               </div>
-              <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG file. If blank, a default icon is used.</p>
-            </div>
-             <div>
-              <label htmlFor="action" className="block text-xs font-medium text-slate-600 mb-1">Action URL (Optional)</label>
-                <input
-                    type="url"
-                    id="action"
-                    value={action}
-                    onChange={e => setAction(e.target.value)}
-                    placeholder="https://farcaster.xyz/..."
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">Must be a link to <code>farcaster.xyz</code> or <code>base.app</code>.</p>
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Airdrop Type</label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    <button
-                        type="button"
-                        onClick={() => setAirdropType(AirdropType.Whitelist)}
-                        aria-pressed={airdropType === AirdropType.Whitelist}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                            airdropType === AirdropType.Whitelist
-                                ? 'border-purple-600 bg-purple-50'
-                                : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-                        }`}
-                    >
-                        <span className="font-semibold text-sm text-slate-800">Whitelist</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setAirdropType(AirdropType.Quest)}
-                        aria-pressed={airdropType === AirdropType.Quest}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                            airdropType === AirdropType.Quest
-                                ? 'border-purple-600 bg-purple-50'
-                                : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-                        }`}
-                    >
-                        <span className="font-semibold text-sm text-slate-800">Quest</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div className="space-y-4">
-            <h2 className="text-base font-semibold text-slate-700">Token & Network</h2>
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Network</label>
-                     {networks.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {networks.map(net => (
-                                <button
-                                    type="button"
-                                    key={net.networkKey}
-                                    onClick={() => handleNetworkSelect(net.networkKey)}
-                                    aria-pressed={network === net.networkKey}
-                                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                                        network === net.networkKey
-                                            ? 'border-purple-600 bg-purple-50'
-                                            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <img src={net.iconUrl} alt={`${net.name} logo`} className="w-5 h-5" />
-                                    <span className="font-semibold text-sm text-slate-800">{net.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
-                           <p className="text-xs text-slate-500 animate-pulse">Loading networks...</p>
-                       </div>
-                    )}
-                </div>
-                <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Token</label>
-                    {isLoadingTokens ? (
-                         <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
-                           <p className="text-xs text-slate-500 animate-pulse">Loading tokens...</p>
-                       </div>
-                    ) : tokens.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {tokens.map(token => (
-                                <button
-                                    type="button"
-                                    key={token.contractAddress}
-                                    onClick={() => setSelectedTokenAddress(token.contractAddress)}
-                                    aria-pressed={selectedTokenAddress === token.contractAddress}
-                                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                                        selectedTokenAddress === token.contractAddress
-                                            ? 'border-purple-600 bg-purple-50'
-                                            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <img src={token.iconUrl} alt={`${token.symbol} logo`} className="w-5 h-5" />
-                                    <span className="font-semibold text-sm text-slate-800">{token.symbol}</span>
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                       <div className="mt-2 p-4 text-center border-2 border-dashed border-slate-200 rounded-lg">
-                           <p className="text-xs text-slate-500">Select a network to see available tokens.</p>
-                       </div>
-                    )}
-                </div>
-            </div>
-        </div>
+              <div>
+                  <label htmlFor="endTime" className="block text-xs font-medium text-slate-600 mb-1">End Time (UTC)</label>
+                  <input type="datetime-local" id="endTime" value={endTime} onChange={e => setEndTime(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+              </div>
+          </div>
+      </div>
 
-        {airdropType === AirdropType.Whitelist ? renderWhitelistFields() : renderQuestFields()}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="space-y-4">
-            <h2 className="text-base font-semibold text-slate-700">Schedule</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="startTime" className="block text-xs font-medium text-slate-600 mb-1">Start Time (UTC)</label>
-                    <input type="datetime-local" id="startTime" value={startTime} onChange={e => setStartTime(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                </div>
-                <div>
-                    <label htmlFor="endTime" className="block text-xs font-medium text-slate-600 mb-1">End Time (UTC)</label>
-                    <input type="datetime-local" id="endTime" value={endTime} onChange={e => setEndTime(e.target.value)} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                </div>
-            </div>
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <div className="flex justify-end pt-4">
-            <button 
-              type="submit" 
-              className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
-              disabled={(status !== 'idle' && status !== 'error') || networks.length === 0}
-            >
-              {statusMessages[status]}
-            </button>
-        </div>
-      </form>
-    </div>
+      <div className="flex justify-end pt-4">
+          <button 
+            type="submit" 
+            className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
+            disabled={(status !== 'idle' && status !== 'error') || networks.length === 0}
+          >
+            {statusMessages[status]}
+          </button>
+      </div>
+    </form>
   );
 };
 
