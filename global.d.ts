@@ -1,12 +1,15 @@
-// FIX: This file must be a module to augment global types. The `export {}` at the end ensures this.
-declare global {
-  // Augment React's HTMLAttributes to include the `tw` prop for @vercel/og's Tailwind-like styling.
-  namespace React {
-    interface HTMLAttributes<T> {
-      tw?: string;
-    }
+// FIX: Explicitly import React types and use module augmentation to ensure types are correctly applied.
+// This resolves issues where TypeScript fails to recognize augmentations for global JSX.
+import type * as React from 'react';
+
+// Augment the 'react' module to add the `tw` prop for @vercel/og's Tailwind-like styling.
+declare module 'react' {
+  interface HTMLAttributes<T> {
+    tw?: string;
   }
-  
+}
+
+declare global {
   // Augment the NodeJS namespace to include environment variables and missing process types.
   namespace NodeJS {
     interface ProcessEnv {
@@ -46,5 +49,4 @@ declare global {
   }
 }
 
-// This empty export is what turns this file into a module.
-export {};
+// This empty export is no longer needed as the file is now a module due to the import.

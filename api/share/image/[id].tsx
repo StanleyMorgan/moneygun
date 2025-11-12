@@ -50,16 +50,18 @@ export default async function handler(req: Request) {
           fontFamily: '"Inter"',
         }}
       >
-        <div tw="flex flex-col items-center justify-center text-center bg-white/90 rounded-3xl p-10 px-16 shadow-2xl w-[85%] max-w-[900px]">
+        <div tw="flex flex-row items-center justify-center bg-white/90 rounded-3xl p-12 shadow-2xl w-[85%] max-w-[900px]">
           <img
             src={image}
-            tw="w-44 h-44 rounded-2xl mb-5 border-2 border-gray-200"
+            tw="w-44 h-44 rounded-2xl mr-10 border-2 border-gray-200 flex-shrink-0"
             style={{ objectFit: 'cover' }}
           />
-          <h1 tw="text-6xl text-gray-800 m-0 mb-4 leading-tight">{data.name}</h1>
-          <p tw="text-5xl text-gray-600 m-0">
-            Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
-          </p>
+          <div tw="flex flex-col items-start justify-center">
+             <h1 tw="text-6xl text-gray-800 m-0 mb-4 leading-tight text-left">{data.name}</h1>
+            <p tw="text-5xl text-gray-600 m-0 text-left">
+              Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
+            </p>
+          </div>
         </div>
       </div>
     ),
