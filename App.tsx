@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -8,6 +9,7 @@ import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 import { getAirdrops, createAirdrop, getNetworks } from './lib/api';
 import { useAccount } from 'wagmi';
+import { getAddress } from 'viem';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');
@@ -40,6 +42,12 @@ const App: React.FC = () => {
     loadData();
 
   }, []);
+  
+  const userAirdropsCount = isConnected && address
+    ? airdrops.filter(ad => ad.creatorAddress && getAddress(ad.creatorAddress) === getAddress(address)).length
+    : 0;
+  const canCreateAirdrop = userAirdropsCount < 3;
+
 
   const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
     if (!address) {
@@ -73,7 +81,14 @@ const App: React.FC = () => {
     setAirdrops(prevAirdrops => prevAirdrops.filter(ad => ad.id !== airdropId));
   }, []);
 
-  const handleCreateNew = () => setView('new-airdrop');
+  const handleCreateNew = () => {
+    if (canCreateAirdrop) {
+      setView('new-airdrop');
+    } else {
+      alert("Вы достигли максимального лимита в 3 аирдропа.");
+    }
+  };
+
   const handleEarnClick = () => {
     setView('dashboard');
     setDashboardTab('earn');
@@ -129,11 +144,13 @@ const App: React.FC = () => {
         {isConnected && (
           <button
             onClick={handleCreateNew}
+            disabled={!canCreateAirdrop}
+            title={!canCreateAirdrop ? "Вы достигли максимального лимита в 3 аирдропа." : "Создать новый аирдроп"}
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
               view === 'new-airdrop'
                 ? 'bg-purple-600 text-white'
                 : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            } ${!canCreateAirdrop ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Create
           </button>
