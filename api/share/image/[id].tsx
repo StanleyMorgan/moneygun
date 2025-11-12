@@ -50,16 +50,18 @@ export default async function handler(req: Request) {
           fontFamily: '"Inter"',
         }}
       >
-        {/* Dynamic-width centered container */}
+        {/* Dynamic white rectangle centered at 75% height */}
         <div
-          tw="absolute inline-flex flex-row items-center bg-white/90 rounded-3xl p-8 shadow-2xl"
+          tw="absolute flex flex-row items-center bg-white/90 rounded-3xl p-8 shadow-2xl"
           style={{
             top: '75%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
+            width: 'fit-content',
             maxWidth: '90%',
           }}
         >
+          {/* Drop image pinned to the left */}
           <img
             src={image}
             tw="w-32 h-32 rounded-2xl border-2 border-gray-200 mr-6 flex-shrink-0"
@@ -89,5 +91,4 @@ export default async function handler(req: Request) {
       },
     },
   );
-
 }
