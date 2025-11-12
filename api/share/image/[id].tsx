@@ -69,12 +69,12 @@ export default async function handler(req: Request) {
 
           <div tw="flex flex-col items-start justify-center">
             <h1
-              tw="text-[44px] text-gray-800 m-0 mb-3 leading-tight text-left"
-              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              tw="text-[42px] text-gray-800 m-0 mb-3 leading-tight text-left"
+              style={{ whiteSpace: 'nowrap' }}
             >
               {data.name}
             </h1>
-            <p tw="text-[36px] text-gray-600 m-0 text-left">
+            <p tw="text-[34px] text-gray-600 m-0 text-left">
               Reward: <span tw="text-purple-600 font-bold">{rewardText}</span>
             </p>
           </div>
