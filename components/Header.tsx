@@ -24,7 +24,8 @@ const Header: React.FC = () => {
                 // FIX: Added the required 'namespace' property to align with the updated type definition.
                 <appkit-button balance="hide" label="" size="md" disabled={false} loadingLabel="" namespace="eip155" />
             ) : (
-                <appkit-connect-button label="Connect" />
+                // FIX: Added the required 'size' property to align with the updated type definition in `global.d.ts`.
+                <appkit-connect-button label="Connect" size="md" />
             )}
           </div>
         </div>

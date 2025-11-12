@@ -250,6 +250,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
       setError('Action URL must be a valid farcaster.xyz or base.app link.');
       return false;
     }
+    if (image && !image.endsWith('.svg')) {
+      setError('Image URL must be a link to an SVG file.');
+      return false;
+    }
     return true;
   };
 
@@ -414,14 +418,17 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         if (status !== 'saving' || !newAirdropAddress || !selectedToken) return;
 
         try {
-            let payload: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress' | 'verifierAddress'> & { whitelist?: WhitelistEntry[] };
+            let payload: Omit<Airdrop, 'id' | 'createdAt' | 'claimedCount'> & { whitelist?: WhitelistEntry[] };
+            const imageUrl = image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
 
             if (airdropType === AirdropType.Whitelist) {
                 const whitelistMaxReward = whitelist.reduce((max, entry) => Math.max(max, Number(entry.amount)), 0);
                 payload = {
-                    name, description, image, action, type: AirdropType.Whitelist,
+                    name, description, image: imageUrl, action, type: AirdropType.Whitelist,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
+                    // FIX: Add missing 'creatorAddress' property to the payload to satisfy the Airdrop type.
+                    creatorAddress: address!,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     whitelist, contractAddress: newAirdropAddress, merkleRoot: merkleRoot!,
                     recipientCount: whitelist.length,
@@ -429,9 +436,11 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                 };
             } else { // Quest
                 payload = {
-                    name, description, image, action, type: AirdropType.Quest,
+                    name, description, image: imageUrl, action, type: AirdropType.Quest,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
+                    // FIX: Add missing 'creatorAddress' property to the payload to satisfy the Airdrop type.
+                    creatorAddress: address!,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
                     recipientCount: Number(recipientCount), maxReward: Number(maxReward),
@@ -450,7 +459,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
         }
     };
     saveAirdrop();
-  }, [status, newAirdropAddress, selectedToken, airdropType, action, description, endTime, image, maxReward, merkleRoot, name, network, onAddAirdrop, recipientCount, startTime, targetContract, topic0, totalAmount, userTopicIndex, whitelist]);
+  }, [status, newAirdropAddress, selectedToken, airdropType, action, description, endTime, image, maxReward, merkleRoot, name, network, onAddAirdrop, recipientCount, startTime, targetContract, topic0, totalAmount, userTopicIndex, whitelist, address]);
 
 
   useEffect(() => {
@@ -569,7 +578,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop, onBack })
                   }}
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG or image file. If blank, a default icon is used.</p>
+              <p className="text-xs text-slate-500 mt-1">Provide a URL to an SVG file. If blank, a default icon is used.</p>
             </div>
              <div>
               <label htmlFor="action" className="block text-xs font-medium text-slate-600 mb-1">Action URL (Optional)</label>

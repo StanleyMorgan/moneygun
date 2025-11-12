@@ -30,7 +30,8 @@ declare global {
       > & {
         // FIX: Made `label` a required property to match the base type definition from `@reown/appkit`, resolving a type incompatibility error.
         label: string;
-        size?: 'sm' | 'md';
+        // FIX: Made `size` a required property to align with the base type definition from `@reown/appkit`.
+        size: 'sm' | 'md';
         loadingLabel?: string;
       };
       // Add appkit-button for displaying connected state
