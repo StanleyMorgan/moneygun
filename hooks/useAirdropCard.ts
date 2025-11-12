@@ -100,7 +100,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const { switchChainAsync } = useSwitchChain();
 
     // State management
-    const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
+    const [claimStatus, setClaimStatus] = useState<'idle' | 'fetching' | 'switching' | 'claiming' | 'waiting' | 'success' | 'error'>('idle');
     const [claimError, setClaimError] = useState('');
     const [questVerifyStatus, setQuestVerifyStatus] = useState<'idle' | 'verifying' | 'verified' | 'error'>('idle');
     const [questSignature, setQuestSignature] = useState<`0x${string}` | null>(null);
@@ -272,9 +272,30 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
 
     const handleWhitelistClaim = useCallback(async () => {
         setClaimError('');
-        if (!isConnected || !address || !chain || !airdrop.contractAddress) return setClaimError('Wallet not connected or contract details missing.');
+        if (!isConnected || !address || !airdrop.contractAddress || !airdrop.network) {
+            setClaimError('Wallet not connected or contract details missing.');
+            return;
+        }
+
+        const targetChainId = chainIdMap[airdrop.network];
+        if (!targetChainId) {
+            setClaimError(`Unsupported network: ${airdrop.network}`);
+            return;
+        }
 
         try {
+            let finalChain = chain;
+            if (chain?.id !== targetChainId) {
+                if (!switchChainAsync) {
+                    throw new Error("Could not switch network. Please do it manually in your wallet.");
+                }
+                setClaimStatus('switching');
+                finalChain = await switchChainAsync({ chainId: targetChainId });
+                if (!finalChain) {
+                    throw new Error('Network switch failed or was cancelled.');
+                }
+            }
+
             setClaimStatus('fetching');
             const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
             if (!response.ok) throw new Error((await response.json()).message || 'You are not eligible for this airdrop.');
@@ -289,22 +310,47 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 functionName: 'claim',
                 args: [amountInBaseUnits, proof],
                 account: address,
-                chain: chain,
+                chain: finalChain,
             });
             setClaimStatus('waiting');
         } catch (err: any) {
-            setClaimError(err.message);
-            setClaimStatus('error');
+            const isUserRejection = err instanceof BaseError && (err.walk(e => e instanceof UserRejectedRequestError) || err.shortMessage.includes('User rejected the request') || err.message.includes('switch failed'));
+            if (isUserRejection) {
+                setClaimStatus('idle');
+                setClaimError('');
+            } else {
+                setClaimError(err.message);
+                setClaimStatus('error');
+            }
         }
-    }, [isConnected, address, chain, airdrop, claim]);
+    }, [isConnected, address, airdrop, claim, chain, switchChainAsync]);
     
     const handleQuestClaim = useCallback(async () => {
         setClaimError('');
-        if (!isConnected || !address || !chain || !airdrop.contractAddress || !questSignature || !questAmount) {
-            return setClaimError('Claim details are missing. Please verify again.');
+        if (!isConnected || !address || !airdrop.contractAddress || !airdrop.network || !questSignature || !questAmount) {
+            setClaimError('Claim details are missing. Please verify again.');
+            return;
+        }
+
+        const targetChainId = chainIdMap[airdrop.network];
+        if (!targetChainId) {
+            setClaimError(`Unsupported network: ${airdrop.network}`);
+            return;
         }
 
         try {
+            let finalChain = chain;
+            if (chain?.id !== targetChainId) {
+                if (!switchChainAsync) {
+                    throw new Error("Could not switch network. Please do it manually in your wallet.");
+                }
+                setClaimStatus('switching');
+                finalChain = await switchChainAsync({ chainId: targetChainId });
+                if (!finalChain) {
+                    throw new Error('Network switch failed or was cancelled.');
+                }
+            }
+
             setClaimStatus('claiming');
             const amountInBaseUnits = parseUnits(questAmount, airdrop.tokenDecimals || 18);
             const questIdBytes32 = pad(toHex(airdrop.id), { size: 32 });
@@ -315,15 +361,21 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 functionName: 'claim',
                 args: [amountInBaseUnits, questIdBytes32, questSignature],
                 account: address,
-                chain: chain,
+                chain: finalChain,
             });
             setClaimStatus('waiting');
         } catch (err: any) {
-            console.error('[Quest Claim] Contract write error:', err);
-            setClaimError('An unexpected error occurred during claim.');
-            setClaimStatus('error');
+             const isUserRejection = err instanceof BaseError && (err.walk(e => e instanceof UserRejectedRequestError) || err.shortMessage.includes('User rejected the request') || err.message.includes('switch failed'));
+            if (isUserRejection) {
+                setClaimStatus('idle');
+                setClaimError('');
+            } else {
+                console.error('[Quest Claim] Contract write error:', err);
+                setClaimError(err.message || 'An unexpected error occurred during claim.');
+                setClaimStatus('error');
+            }
         }
-    }, [isConnected, address, chain, airdrop, questSignature, questAmount, claim]);
+    }, [isConnected, address, airdrop, questSignature, questAmount, claim, chain, switchChainAsync]);
 
     const handleClaim = airdrop.type === AirdropType.Whitelist ? handleWhitelistClaim : handleQuestClaim;
 
@@ -587,6 +639,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const claimButtonText = () => {
         if (claimStatus === 'success') return 'Claimed!';
         if (claimStatus === 'waiting') return 'Processing...';
+        if (claimStatus === 'switching') return 'Switching Network...';
         if (claimStatus === 'claiming') return 'Confirm in wallet...';
         if (claimStatus === 'fetching') return 'Preparing...';
         if (claimStatus === 'error') return 'Try Again';
