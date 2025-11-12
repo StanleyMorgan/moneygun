@@ -63,7 +63,6 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropU
   );
   
   const airdropsToDisplay = activeTab === 'earn' ? earnAirdrops : manageAirdrops;
-  const showCreateButton = activeTab === 'manage' && isConnected;
 
 
   const TabButton: React.FC<{ tab: 'earn' | 'manage', label: string }> = ({ tab, label }) => (
@@ -119,26 +118,22 @@ const Dashboard: React.FC<DashboardProps> = ({ airdrops, onCreateNew, onAirdropU
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-center">
         <div className="bg-slate-200 p-1 rounded-lg flex items-center space-x-1">
             <TabButton tab="earn" label="Earn" />
             <TabButton tab="manage" label="Manage" />
+            {isConnected && (
+              <button
+                onClick={onCreateNew}
+                className="px-4 py-2 text-sm font-semibold rounded-md transition-colors text-slate-600 hover:bg-slate-100"
+              >
+                Create
+              </button>
+            )}
         </div>
-        {showCreateButton && (
-          <button 
-            onClick={onCreateNew}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Airdrop
-          </button>
-        )}
       </div>
 
       <div className="space-y-3">
-          <h1 className="text-xl font-semibold text-slate-800">
-            {activeTab === 'earn' ? 'Discover Airdrops' : 'My Airdrops'}
-          </h1>
           {airdropsToDisplay.length > 0 ? (
               airdropsToDisplay.map(airdrop => (
                 <AirdropCard key={airdrop.id} airdrop={airdrop} onAirdropUpdate={onAirdropUpdate} viewAsOwner={activeTab === 'manage'} onAirdropDelete={onAirdropDelete} />
