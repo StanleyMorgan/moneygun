@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -22,6 +23,28 @@ const App: React.FC = () => {
   useEffect(() => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
     sdk.actions.ready();
+
+    // Smart prompt to add the app to favorites on the user's first visit.
+    const hasBeenPromptedKey = 'moneygun_hasBeenPromptedToAddApp';
+    const hasBeenPrompted = localStorage.getItem(hasBeenPromptedKey);
+
+    if (!hasBeenPrompted) {
+      const promptToAdd = async () => {
+        try {
+          await sdk.actions.addMiniApp();
+        } catch (error) {
+          // This can happen if the user rejects, or if the domain doesn't match the manifest.
+          // We still want to mark them as prompted to avoid showing the dialog again.
+          console.warn("Failed to prompt user to add Mini App:", error);
+        } finally {
+          // Mark that the user has been prompted, regardless of the outcome.
+          localStorage.setItem(hasBeenPromptedKey, 'true');
+        }
+      };
+      
+      // Give the app a moment to render before showing a system prompt for better UX.
+      setTimeout(promptToAdd, 1500); 
+    }
 
     const loadData = async () => {
       try {
