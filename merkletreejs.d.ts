@@ -1,7 +1,3 @@
-// Создаем файл декларации для merkletreejs, так как у него нет собственных типов,
-// а пакет @types/merkletreejs недоступен. Это решает ошибку TypeScript
-// "Cannot find module 'merkletreejs' or its corresponding type declarations."
-
 declare module 'merkletreejs' {
   import { Buffer } from 'buffer';
 

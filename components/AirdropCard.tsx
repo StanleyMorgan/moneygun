@@ -77,6 +77,8 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         openDeleteModal,
         closeDeleteModal,
         closeSuccessModal,
+        isMiniAppAction,
+        handleActionClick,
     } = useAirdropCard(props);
     
     const { airdrop, viewAsOwner } = props;
@@ -174,7 +176,8 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                         {airdrop.action && (
                             <a 
                                 href={airdrop.action}
-                                target="_blank"
+                                onClick={handleActionClick}
+                                target={isMiniAppAction ? undefined : "_blank"}
                                 rel="noopener noreferrer"
                                 className="p-2.5 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
                                 aria-label="View details"

@@ -5,6 +5,7 @@ import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
 import { base, baseSepolia, monadTestnet } from 'viem/chains';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 
 // --- Helper Functions (moved from component) ---
@@ -172,6 +173,23 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const anyError = claimError || fundingError || questError || (eligibility.status === 'error' ? eligibility.error : null) || (questEligibility.status === 'error' ? questEligibility.error : null);
 
     const triggerRefetchBalance = refetchBalance;
+
+    const isMiniAppAction = airdrop.action?.startsWith('https://farcaster.xyz/miniapps/');
+
+    const handleActionClick = useCallback(async (e: React.MouseEvent) => {
+        if (!airdrop.action) return;
+
+        if (isMiniAppAction) {
+            e.preventDefault();
+            try {
+                await sdk.actions.openMiniApp({ url: airdrop.action });
+            } catch (error) {
+                console.error('Failed to open Mini App:', error);
+                alert('Failed to open Mini App. The link may be invalid.');
+            }
+        }
+    }, [airdrop.action, isMiniAppAction]);
+
 
     // Handlers
     const handleQuestVerify = useCallback(async () => {
@@ -753,5 +771,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             setWithdrawStatus('idle');
         },
         closeSuccessModal,
+        isMiniAppAction,
+        handleActionClick,
     };
 };
