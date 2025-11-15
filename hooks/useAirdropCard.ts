@@ -174,21 +174,26 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
 
     const triggerRefetchBalance = refetchBalance;
 
-    const isMiniAppAction = airdrop.action?.startsWith('https://farcaster.xyz/miniapps/');
-
-    const handleActionClick = useCallback(async (e: React.MouseEvent) => {
+    const handleActionClick = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>) => {
         if (!airdrop.action) return;
-
-        if (isMiniAppAction) {
-            e.preventDefault();
-            try {
-                await sdk.actions.openMiniApp({ url: airdrop.action });
-            } catch (error) {
-                console.error('Failed to open Mini App:', error);
-                alert('Failed to open Mini App. The link may be invalid.');
+    
+        e.preventDefault();
+        const url = airdrop.action;
+    
+        try {
+            if (url.startsWith('https://farcaster.xyz/miniapps/')) {
+                await sdk.actions.openMiniApp({ url });
+            } else if (url.startsWith('https://farcaster.xyz/')) {
+                await sdk.actions.openUrl({ url });
+            } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
             }
+        } catch (error) {
+            console.error(`Failed to open URL via Farcaster SDK: ${url}`, error);
+            alert('Failed to open the link through Farcaster. Let’s try opening it in a new tab.');
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
-    }, [airdrop.action, isMiniAppAction]);
+    }, [airdrop.action]);
 
 
     // Handlers
@@ -771,7 +776,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             setWithdrawStatus('idle');
         },
         closeSuccessModal,
-        isMiniAppAction,
         handleActionClick,
     };
 };
