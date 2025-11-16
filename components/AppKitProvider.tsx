@@ -8,7 +8,7 @@ import { WagmiProvider } from 'wagmi';
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 // Use the official, built-in configuration for Monad Testnet
-import { base, baseSepolia, monadTestnet } from 'wagmi/chains';
+import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'wagmi/chains';
 import type { Chain } from 'viem';
 
 // The Alchemy API key is used elsewhere (e.g., backend) but is not needed for frontend RPCs.
@@ -23,7 +23,7 @@ if (!projectId) {
   throw new Error('REOWN_PROJECT_ID is not defined. Please set it in your environment.');
 }
 // Use the imported, official monadTestnet configuration.
-const networks: [Chain, ...Chain[]] = [base, baseSepolia, monadTestnet];
+const networks: [Chain, ...Chain[]] = [base, baseSepolia, monadTestnet, celo, celoSepolia];
 
 // 2. Create the Wagmi Adapter, which will generate the wagmiConfig
 // Fix: The adapter is created first, and it generates the config, not the other way around.

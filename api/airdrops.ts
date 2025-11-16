@@ -4,7 +4,7 @@ import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
 import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia, monadTestnet } from 'viem/chains';
+import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
 import { Buffer } from 'buffer';
 
@@ -186,6 +186,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     case 'monad-testnet':
                         chain = monadTestnet;
                         alchemyRpcUrl = `https://monad-testnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'celo':
+                        chain = celo;
+                        alchemyRpcUrl = `https://celo-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
+                        break;
+                    case 'celo-sepolia':
+                        chain = celoSepolia;
+                        alchemyRpcUrl = `https://celo-sepolia.g.alchemy.com/v2/${alchemyApiKey}`;
                         break;
                     default:
                         return res.status(400).json({ message: `Unsupported network: ${airdrop.network}` });

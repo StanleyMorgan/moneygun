@@ -4,7 +4,7 @@ import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
-import { base, baseSepolia, monadTestnet } from 'viem/chains';
+import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'viem/chains';
 import { sdk } from '@farcaster/miniapp-sdk';
 
 
@@ -49,6 +49,10 @@ export const getBlockExplorerUrl = (network: string | undefined, address: string
             return `https://sepolia.basescan.org/address/${address}`;
         case 'monad-testnet':
             return `https://monad-testnet.socialscan.io/address/${address}`;
+        case 'celo':
+            return `https://celoscan.io/address/${address}`;
+        case 'celo-sepolia':
+            return `https://sepolia.celoscan.io/address/${address}`;
         default:
             return '#';
     }
@@ -63,6 +67,10 @@ export const formatNetworkName = (network: string | undefined) => {
             return 'Base Sepolia';
         case 'monad-testnet':
             return 'Monad Testnet';
+        case 'celo':
+            return 'Celo';
+        case 'celo-sepolia':
+            return 'Celo Sepolia';
         default:
             return network;
     }
@@ -83,6 +91,8 @@ const chainIdMap: Record<string, number> = {
   'base': base.id,
   'base-sepolia': baseSepolia.id,
   'monad-testnet': monadTestnet.id,
+  'celo': celo.id,
+  'celo-sepolia': celoSepolia.id,
 };
 
 
