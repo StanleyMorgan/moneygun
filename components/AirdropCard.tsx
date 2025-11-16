@@ -115,7 +115,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
       rewardString = `some ${airdrop.tokenSymbol}`;
     }
 
-    const shareText = `I just claimed ${rewardString} in the ${airdrop.name} airdrop on Moneygun!`;
+    const shareText = `Claimed ${rewardString} in "${airdrop.name}" — Moneygun makes it fun.`;
     const shareUrl = `https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/frame/${airdrop.id}`)}`;
 
 

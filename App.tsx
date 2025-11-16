@@ -108,7 +108,7 @@ const App: React.FC = () => {
     if (canCreateAirdrop) {
       setView('new-airdrop');
     } else {
-      alert("Вы достигли максимального лимита в 3 аирдропа.");
+      alert("You’ve reached the maximum limit of 3 airdrops.");
     }
   };
 
