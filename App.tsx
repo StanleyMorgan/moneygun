@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -24,21 +22,22 @@ const App: React.FC = () => {
     // Signal to the Farcaster client that the mini app is ready to be displayed.
     sdk.actions.ready();
 
-    // Smart prompt to add the app to favorites on the user's first visit.
-    const hasBeenPromptedKey = 'moneygun_hasBeenPromptedToAddApp';
-    const hasBeenPrompted = localStorage.getItem(hasBeenPromptedKey);
+    // Smart prompt to add the app to favorites.
+    // We check if the user has successfully added the app before.
+    // If not, we prompt them. We only save the state if the action is successful.
+    const addedToFavoritesKey = 'moneygun_hasAddedToFavorites';
+    const hasAdded = localStorage.getItem(addedToFavoritesKey);
 
-    if (!hasBeenPrompted) {
+    if (!hasAdded) {
       const promptToAdd = async () => {
         try {
           await sdk.actions.addMiniApp();
+          // Only mark as added if the user accepts (promise resolves)
+          localStorage.setItem(addedToFavoritesKey, 'true');
         } catch (error) {
-          // This can happen if the user rejects, or if the domain doesn't match the manifest.
-          // We still want to mark them as prompted to avoid showing the dialog again.
-          console.warn("Failed to prompt user to add Mini App:", error);
-        } finally {
-          // Mark that the user has been prompted, regardless of the outcome.
-          localStorage.setItem(hasBeenPromptedKey, 'true');
+          // If the user rejects or an error occurs, we do NOT set the flag.
+          // This ensures they will be prompted again on the next visit.
+          console.warn("User declined to add Mini App or error occurred:", error);
         }
       };
       
