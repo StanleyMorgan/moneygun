@@ -126,7 +126,8 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [deleteError, setDeleteError] = useState('');
     const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'switching' | 'withdrawing' | 'waiting' | 'success' | 'error'>('idle');
     const [withdrawError, setWithdrawError] = useState('');
-    const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'error', error: string | null }>({ status: 'idle', error: null });
+    // FIX: Added 'claimed' to Whitelist eligibility status to match Quest logic and unified DB schema.
+    const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'claimed' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     
@@ -496,7 +497,15 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 }
                 try {
                     const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
-                    if (response.ok) setEligibility({ status: 'eligible', error: null });
+                    if (response.ok) {
+                        // FIX: Check for 'status' in the response. If 'claimed', update state immediately.
+                        const data = await response.json();
+                        if (data.status === 'claimed') {
+                            setEligibility({ status: 'claimed', error: null });
+                        } else {
+                            setEligibility({ status: 'eligible', error: null });
+                        }
+                    }
                     else if (response.status === 404) setEligibility({ status: 'ineligible', error: null });
                     else {
                         const { message } = await response.json();
@@ -520,7 +529,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 try {
                     const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
                     if (response.ok) {
-                        const { status } = await response.json(); // 'verified' or 'claimed'
+                        const { status } = await response.json(); // 'verified' or 'claimed' or 'eligible'
                         setQuestEligibility({ status, error: null });
                         if (status === 'verified' && !questSignature) {
                              handleQuestVerify();
@@ -730,6 +739,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         questButtonText = 'Retry Verification';
     }
 
+    // FIX: Determine if we have a definitive 'claimed' status from the DB to bypass blockchain latency.
+    const dbSaysClaimed = eligibility.status === 'claimed' || questEligibility.status === 'claimed';
+    // FIX: Consider loading finished if DB has returned a definitive status (eligible, ineligible, claimed).
+    // We only really need to "wait" if we are strictly relying on the slow wagmi hook and have no DB info yet.
+    const effectiveLoading = (isCheckingClaimedStatus && eligibility.status === 'idle' && questEligibility.status === 'idle') || eligibility.status === 'checking' || questEligibility.status === 'checking';
 
     return {
         // State and Computed Values
@@ -746,8 +760,10 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         ownerAction,
 
         // Claiming
-        isCheckingClaimedStatus,
-        hasClaimed,
+        // FIX: Override 'isCheckingClaimedStatus' with our effective loading state that respects DB results.
+        isCheckingClaimedStatus: effectiveLoading,
+        // FIX: Override 'hasClaimed' if DB says it is claimed.
+        hasClaimed: hasClaimed || dbSaysClaimed,
         eligibility,
         claimStatus,
         claimButtonText: claimButtonText(),
