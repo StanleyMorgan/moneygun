@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (airdropType === 'Whitelist') {
                     const { rows: userEntries } = await sql`
-                        SELECT amount, proof FROM whitelist_entries 
+                        SELECT amount, proof, status FROM whitelist_entries 
                         WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
                     `;
 
@@ -84,7 +84,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const userEntry = userEntries[0];
                     const proof = typeof userEntry.proof === 'string' ? JSON.parse(userEntry.proof) : userEntry.proof;
 
-                    return res.status(200).json({ amount: String(userEntry.amount), proof });
+                    return res.status(200).json({ 
+                        status: userEntry.status, 
+                        amount: String(userEntry.amount), 
+                        proof 
+                    });
                 } else if (airdropType === 'Quest') {
                     const { rows: questEntries } = await sql`
                         SELECT status FROM quest_entries
@@ -109,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     SELECT
                         a.*,
                         CASE
-                            WHEN a.type = 'Whitelist' THEN (SELECT COUNT(*) FROM whitelist_entries we WHERE we.airdrop_id = a.id AND we.claimed = true)
+                            WHEN a.type = 'Whitelist' THEN (SELECT COUNT(*) FROM whitelist_entries we WHERE we.airdrop_id = a.id AND we.status = 'claimed')
                             WHEN a.type = 'Quest' THEN (SELECT COUNT(*) FROM quest_entries qe WHERE qe.airdrop_id = a.id AND qe.status = 'claimed')
                             ELSE 0
                         END as claimed_count
@@ -251,7 +255,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (airdropRows.length === 0) return res.status(404).json({ message: "Airdrop not found." });
 
                 if (airdropRows[0].type === 'Whitelist') {
-                    await sql`UPDATE whitelist_entries SET claimed = true, claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                    // Updated to use status='claimed' instead of claimed=true
+                    await sql`UPDATE whitelist_entries SET status = 'claimed', claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
                 } else if (airdropRows[0].type === 'Quest') {
                     await sql`UPDATE quest_entries SET status = 'claimed', updated_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
                 }
@@ -311,6 +316,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     for (const entry of whitelist) {
                         const leaf = keccak256(createLeafBuffer(entry.address, parseUnits(entry.amount, tokenDecimalsForProof)));
                         const proof = tree.getHexProof(leaf);
+                        // Insert status will default to 'eligible' based on DB schema
                         await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
                     }
                 } else if (type === 'Quest') {
