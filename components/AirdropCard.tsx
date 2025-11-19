@@ -3,7 +3,6 @@ import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { formatUnits } from 'viem';
 import { useAirdropCard, formatDateTime, formatNetworkName } from '../hooks/useAirdropCard';
-import { InfoIcon } from './icons/InfoIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { ArrowUpRightIcon } from './icons/ArrowUpRightIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
@@ -194,15 +193,12 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                         )}
 
                         {showOwnerControls && ownerAction ? (
-                            <div className="flex items-center gap-2">
-                                <div className="relative group flex items-center">
-                                    <InfoIcon className="w-4 h-4 text-slate-400 hover:text-slate-600 cursor-help" />
-                                    <div className="absolute bottom-full right-1/2 translate-x-1/2 mb-2 w-64 p-3 text-xs leading-relaxed text-white bg-slate-800 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 text-center">
-                                        {ownerAction.description}
-                                        <svg className="absolute text-slate-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xmlSpace="preserve"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                                    </div>
-                                </div>
+                             <div className="relative group">
                                 <button onClick={ownerAction.buttonAction} disabled={ownerAction.buttonDisabled} className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed ${ownerAction.buttonClassName}`}>{ownerAction.buttonText}</button>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 text-xs leading-relaxed text-white bg-slate-800 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 text-center">
+                                    {ownerAction.description}
+                                    <svg className="absolute text-slate-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xmlSpace="preserve"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                                </div>
                             </div>
                         ) : computedStatus === AirdropStatus.InProgress && !showOwnerControls ? (
                            renderClaimAction()
