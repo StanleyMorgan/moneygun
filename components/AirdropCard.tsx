@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { formatUnits } from 'viem';
@@ -84,22 +85,29 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
 
     const renderClaimAction = () => {
         if (isCheckingClaimedStatus) return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-        if (hasClaimed || questEligibility.status === 'claimed') return <button disabled className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg cursor-default">Claimed</button>;
+        
+        // Claimed state: Gray button
+        if (hasClaimed || questEligibility.status === 'claimed') {
+            return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Claimed</button>;
+        }
 
         if (airdrop.type === AirdropType.Whitelist) {
             if (eligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking eligibility...</p>;
             if (eligibility.status === 'ineligible') return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Not Eligible</button>;
             if (eligibility.status === 'eligible' || eligibility.status === 'error') {
-                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
+                // Claim button: Green
+                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
         }
 
         if (airdrop.type === AirdropType.Quest) {
             if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
             if (questEligibility.status === 'verified' || questSignature) {
-                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
+                // Claim button (after verification): Green
+                return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
-            return <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{questButtonText}</button>;
+            // Verify button: Purple
+            return <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{questButtonText}</button>;
         }
         
         return null;
