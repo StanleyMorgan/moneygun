@@ -25,6 +25,11 @@ const statusMessages: Record<FormStatus, string> = {
     error: 'Try Again',
 };
 
+const loopIntervalOptions = [
+    { label: '12H', value: 12 },
+    { label: '24H', value: 24 },
+];
+
 const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
   const [airdropType, setAirdropType] = useState<AirdropType>(AirdropType.Whitelist);
   const [name, setName] = useState('');
@@ -590,9 +595,24 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
       </div>
        {airdropType === AirdropType.Loop && (
           <div>
-              <label htmlFor="loopInterval" className="block text-xs font-medium text-slate-600 mb-1">Cooldown (Hours)</label>
-              <p className="text-xs text-slate-500 mb-2">How many hours must a user wait before claiming again?</p>
-              <input type="number" id="loopInterval" value={loopInterval} onChange={e => setLoopInterval(Number(e.target.value))} required min={1} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Cooldown</label>
+              <p className="text-xs text-slate-500 mb-2">How long must a user wait before claiming again?</p>
+              <div className="flex flex-wrap gap-2">
+                  {loopIntervalOptions.map(option => (
+                      <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setLoopInterval(option.value)}
+                          className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+                              loopInterval === option.value
+                                  ? 'border-purple-600 bg-purple-50 text-purple-700'
+                                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                      >
+                          {option.label}
+                      </button>
+                  ))}
+              </div>
           </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
