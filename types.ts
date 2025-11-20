@@ -1,6 +1,8 @@
+
 export enum AirdropType {
   Whitelist = 'Whitelist',
   Quest = 'Quest',
+  Loop = 'Loop',
 }
 
 export enum AirdropStatus {
@@ -24,6 +26,7 @@ export interface Network {
   chainId: number;
   whitelistFactoryAddress: `0x${string}`;
   questFactoryAddress: `0x${string}`;
+  repeatFactoryAddress?: `0x${string}`;
   rpcUrlPublic: string;
   iconUrl?: string;
   isTestnet: boolean;
@@ -65,6 +68,7 @@ export interface Airdrop {
   topic0?: string;
   targetContract?: string;
   userTopicIndex?: number;
+  loopInterval?: number;
 }
 
 // Detailed configuration loaded from a JSON file

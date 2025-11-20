@@ -27,6 +27,7 @@ const TypeBadge: React.FC<{ type: AirdropType }> = ({ type }) => {
   const typeClasses: Record<AirdropType, string> = {
     [AirdropType.Whitelist]: 'bg-slate-100 text-slate-600',
     [AirdropType.Quest]: 'bg-indigo-100 text-indigo-600',
+    [AirdropType.Loop]: 'bg-cyan-100 text-cyan-600',
   };
   return (
     <span className={`px-2 py-1 text-xs font-medium rounded-full ${typeClasses[type]}`}>
