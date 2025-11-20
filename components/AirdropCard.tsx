@@ -57,14 +57,18 @@ const CountdownTimer: React.FC<{ targetDate: Date | null }> = ({ targetDate }) =
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-            setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+            const h = hours.toString().padStart(2, '0');
+            const m = minutes.toString().padStart(2, '0');
+            const s = seconds.toString().padStart(2, '0');
+
+            setTimeLeft(`${h}:${m}:${s}`);
         }, 1000);
 
         return () => clearInterval(interval);
     }, [targetDate]);
 
     if (!timeLeft) return null;
-    return <span>Next in: {timeLeft}</span>;
+    return <span>{timeLeft}</span>;
 }
 
 
