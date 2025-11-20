@@ -143,15 +143,16 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const { data: withdrawHash, writeContract: withdraw, error: withdrawErrorHook } = useWriteContract();
     const { isSuccess: isWithdrawSuccess, isLoading: isWaitingForWithdraw } = useWaitForTransactionReceipt({ hash: withdrawHash });
 
+    const shouldFetchBalance = viewAsOwner && !!airdrop.network && !!chainIdMap[airdrop.network] && !!airdrop.tokenAddress;
+    
     const { data: contractBalance, isLoading: isBalanceLoading, refetch: refetchBalance } = useReadContract({
-        address: airdrop.tokenAddress ? getAddress(airdrop.tokenAddress) : undefined,
+        address: shouldFetchBalance ? getAddress(airdrop.tokenAddress!) : undefined,
         abi: erc20ABI,
         functionName: 'balanceOf',
-        args: airdrop.contractAddress ? [getAddress(airdrop.contractAddress)] : undefined,
+        args: (shouldFetchBalance && airdrop.contractAddress) ? [getAddress(airdrop.contractAddress)] : undefined,
         chainId: airdrop.network ? chainIdMap[airdrop.network] : undefined,
-        query: {
-            enabled: viewAsOwner && !!airdrop.network && !!chainIdMap[airdrop.network],
-        },
+        // FIX: Removed 'query: { enabled: ... }' because wagmi's StrictOmit type excludes 'enabled'.
+        // Instead, we rely on passing 'undefined' to 'address' to disable the query.
     });
 
     const contractReadConfig = {
@@ -654,13 +655,18 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     useEffect(() => { // Handle withdraw success
         if (isWithdrawSuccess) {
             setWithdrawStatus('success');
-            // Refetch contract state after withdrawal
-            triggerRefetchBalance();
-            refetchClaimedCount();
+            
+            // Wait 2s before refetching to allow RPC nodes to index the transaction
+            setTimeout(() => {
+                triggerRefetchBalance();
+                refetchClaimedCount();
+            }, 2000);
+
+            // Close modal after 3.5s to give user time to read success message
             setTimeout(() => {
                 setIsDeleteModalOpen(false);
                 setWithdrawStatus('idle');
-            }, 2500);
+            }, 3500);
         }
     }, [isWithdrawSuccess, triggerRefetchBalance, refetchClaimedCount]);
 
