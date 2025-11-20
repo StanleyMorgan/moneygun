@@ -1,8 +1,5 @@
-// FIX: Explicitly import React types and use module augmentation to ensure types are correctly applied.
-// This resolves issues where TypeScript fails to recognize augmentations for global JSX.
-import type * as React from 'react';
+import React from 'react';
 
-// Augment the 'react' module to add the `tw` prop for @vercel/og's Tailwind-like styling.
 declare module 'react' {
   interface HTMLAttributes<T> {
     tw?: string;
@@ -10,32 +7,25 @@ declare module 'react' {
 }
 
 declare global {
-  // Augment the NodeJS namespace to include environment variables and missing process types.
   namespace NodeJS {
     interface ProcessEnv {
       readonly REOWN_PROJECT_ID: string;
     }
-    // Add type for process.cwd() to resolve potential type errors in Vercel functions
     interface Process {
       cwd(): string;
     }
   }
 
-  // Augment the JSX namespace to include custom elements like 'appkit-connect-button'.
   namespace JSX {
     interface IntrinsicElements {
       'appkit-connect-button': React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement>,
         HTMLElement
       > & {
-        // FIX: Made `label` a required property to match the base type definition from `@reown/appkit`, resolving a type incompatibility error.
         label: string;
-        // FIX: Made `size` a required property to align with the base type definition from `@reown/appkit`.
         size: 'sm' | 'md';
-        // FIX: Made `loadingLabel` a required property to align with the base type definition and resolve the type incompatibility.
         loadingLabel: string;
       };
-      // Add appkit-button for displaying connected state
       'appkit-button': React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement>,
         HTMLElement
@@ -50,5 +40,3 @@ declare global {
     }
   }
 }
-
-// This empty export is no longer needed as the file is now a module due to the import.
