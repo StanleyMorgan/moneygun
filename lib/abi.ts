@@ -1,3 +1,4 @@
+
 // Fix: Add `as const` to enable strict type inference for ABIs with viem.
 // This ensures that TypeScript recognizes the specific names and types within the ABI,
 // which is crucial for functions like `parseEventLogs` to correctly type their output.
@@ -81,4 +82,53 @@ export const questAirdropABI = [
     { "inputs": [], "name": "token", "outputs": [{ "internalType": "contract IERC20", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" },
     { "inputs": [{ "internalType": "address", "name": "newOwner", "type": "address" }], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
     { "inputs": [], "name": "verifier", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }
+] as const;
+
+export const loopFactoryABI = [
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": true, "internalType": "address", "name": "campaign", "type": "address" },
+            { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+            { "indexed": true, "internalType": "address", "name": "owner", "type": "address" },
+            { "indexed": false, "internalType": "address", "name": "verifier", "type": "address" },
+            { "indexed": false, "internalType": "uint256", "name": "cooldownHours", "type": "uint256" }
+        ],
+        "name": "RepeatAirdropCreated",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            { "internalType": "address", "name": "token", "type": "address" },
+            { "internalType": "address", "name": "owner", "type": "address" },
+            { "internalType": "address", "name": "verifier", "type": "address" },
+            { "internalType": "uint256", "name": "cooldownHours", "type": "uint256" }
+        ],
+        "name": "createRepeatAirdrop",
+        "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+] as const;
+
+export const loopAirdropABI = [
+    { "inputs": [], "name": "balance", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    {
+        "inputs": [
+            { "internalType": "uint256", "name": "amount", "type": "uint256" },
+            { "internalType": "bytes32", "name": "questId", "type": "bytes32" },
+            { "internalType": "bytes", "name": "signature", "type": "bytes" }
+        ],
+        "name": "claim",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    { "inputs": [], "name": "claimedCount", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "cooldown", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "emergencyWithdraw", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "fund", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastClaimTime", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "internalType": "address", "name": "_verifier", "type": "address" }], "name": "setVerifier", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [], "name": "token", "outputs": [{ "internalType": "contract IERC20", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }
 ] as const;

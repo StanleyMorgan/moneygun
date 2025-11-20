@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
 import { formatUnits } from 'viem';
 import { useAirdropCard, formatDateTime, formatNetworkName } from '../hooks/useAirdropCard';
@@ -36,6 +36,37 @@ const TypeBadge: React.FC<{ type: AirdropType }> = ({ type }) => {
   );
 };
 
+const CountdownTimer: React.FC<{ targetDate: Date | null }> = ({ targetDate }) => {
+    const [timeLeft, setTimeLeft] = useState("");
+
+    useEffect(() => {
+        if (!targetDate) return;
+        
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = targetDate.getTime() - now.getTime();
+            
+            if (diff <= 0) {
+                setTimeLeft("");
+                clearInterval(interval);
+                // Ideally trigger a refresh here, but parent state update handles flow
+                return;
+            }
+
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [targetDate]);
+
+    if (!timeLeft) return null;
+    return <span>Next in: {timeLeft}</span>;
+}
+
 
 interface AirdropCardProps {
   airdrop: Airdrop;
@@ -71,6 +102,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         questButtonText,
         isQuestButtonDisabled,
         isSuccessModalOpen,
+        nextClaimAt,
         handleClaim,
         handleQuestVerify,
         handleDelete,
@@ -86,27 +118,37 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     const renderClaimAction = () => {
         if (isCheckingClaimedStatus) return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
         
-        // Claimed state: Gray button
-        if (hasClaimed || questEligibility.status === 'claimed') {
-            return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Claimed</button>;
+        if (airdrop.type === AirdropType.Loop) {
+             if (questEligibility.status === 'claimed' && nextClaimAt) {
+                 // Check if time has passed locally to show active button immediately
+                 if (new Date() < nextClaimAt) {
+                     return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default"><CountdownTimer targetDate={nextClaimAt} /></button>;
+                 }
+             }
+        } else {
+             // Standard Claimed state
+            if (hasClaimed || questEligibility.status === 'claimed') {
+                return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Claimed</button>;
+            }
         }
+
 
         if (airdrop.type === AirdropType.Whitelist) {
             if (eligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking eligibility...</p>;
             if (eligibility.status === 'ineligible') return <button disabled className="px-4 py-2 text-sm font-semibold text-slate-500 bg-slate-200 rounded-lg cursor-default">Not Eligible</button>;
             if (eligibility.status === 'eligible' || eligibility.status === 'error') {
-                // Claim button: Green
                 return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
         }
 
-        if (airdrop.type === AirdropType.Quest) {
+        if (airdrop.type === AirdropType.Quest || airdrop.type === AirdropType.Loop) {
             if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
-            if (questEligibility.status === 'verified' || questSignature) {
-                // Claim button (after verification): Green
+            // If Loop is eligible (not claimed recently) OR Quest is verified
+            if (questEligibility.status === 'verified' || questEligibility.status === 'eligible' || questSignature) {
                 return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
-            // Verify button: Purple
+            
+            // If not started or error
             return <button onClick={handleQuestVerify} disabled={isQuestButtonDisabled} className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{questButtonText}</button>;
         }
         
@@ -115,7 +157,6 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
     
-    // Improved share text generation
     let rewardString = 'a reward';
     if (airdrop.maxReward && airdrop.tokenSymbol) {
       rewardString = `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`;
@@ -145,16 +186,25 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                 <div className="w-1/2"><p className="text-slate-500">End Time</p><p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p></div>
             </div>
 
-            {computedStatus === AirdropStatus.InProgress && total > 0 && (
+            {computedStatus === AirdropStatus.InProgress && total > 0 && airdrop.type !== AirdropType.Loop && (
                 <div className="w-full bg-slate-200 rounded-full h-2">
                     <div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label={`Airdrop progress: ${progressPercentage.toFixed(0)}% claimed`}></div>
                 </div>
+            )}
+             {computedStatus === AirdropStatus.InProgress && airdrop.type === AirdropType.Loop && (
+                 // For Loop, just show a generic active bar or maybe the personal cooldown progress? Let's keep it simple for now.
+                 <div className="w-full bg-slate-100 rounded-lg h-2 overflow-hidden">
+                      <div className="bg-cyan-500 h-2 w-full animate-pulse opacity-30"></div>
+                 </div>
             )}
             
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div><p className="text-slate-500">Network</p><p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p></div>
                 <div><p className="text-slate-500">Total Amount</p><p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p></div>
-                <div><p className="text-slate-500">Claimed / Total</p><p className="font-medium text-slate-800">{`${claimed} / ${total}`}</p></div>
+                <div>
+                    <p className="text-slate-500">{airdrop.type === AirdropType.Loop ? 'Active Claimers' : 'Claimed / Total'}</p>
+                    <p className="font-medium text-slate-800">{airdrop.type === AirdropType.Loop ? claimed : `${claimed} / ${total}`}</p>
+                </div>
                 {viewAsOwner ? (
                     <div>
                         <p className="text-slate-500">Contract Balance</p>

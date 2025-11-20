@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { getAddress, parseUnits, UserRejectedRequestError, BaseError, pad, toHex } from 'viem';
 import { Airdrop, AirdropStatus, AirdropType } from '../types';
-import { airdropABI, erc20ABI, questAirdropABI } from '../lib/abi';
+import { airdropABI, erc20ABI, questAirdropABI, loopAirdropABI } from '../lib/abi';
 import { deleteAirdrop, verifyQuest } from '../lib/api';
 import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'viem/chains';
 import { sdk } from '@farcaster/miniapp-sdk';
@@ -18,7 +19,10 @@ export const getComputedStatus = (airdrop: Airdrop, claimedCount?: number, recip
         return AirdropStatus.Draft;
     }
 
-    if (claimedCount !== undefined && recipientCount !== undefined && recipientCount > 0 && claimedCount >= recipientCount) {
+    // For Loop airdrops, total recipients usually means "Total claims allowed" globally or per user.
+    // But if it's a "Loop", it might run until funds run out or end time.
+    // Assuming recipientCount for Loop is "Max Total Claims" for now if set.
+    if (airdrop.type !== AirdropType.Loop && claimedCount !== undefined && recipientCount !== undefined && recipientCount > 0 && claimedCount >= recipientCount) {
         return AirdropStatus.Ended;
     }
 
@@ -128,8 +132,9 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [withdrawError, setWithdrawError] = useState('');
     // FIX: Added 'claimed' to Whitelist eligibility status to match Quest logic and unified DB schema.
     const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'claimed' | 'error', error: string | null }>({ status: 'idle', error: null });
-    const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error', error: string | null }>({ status: 'idle', error: null });
+    const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error' | 'eligible', error: string | null }>({ status: 'idle', error: null });
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [nextClaimAt, setNextClaimAt] = useState<Date | null>(null);
     
     // Wagmi hooks
     const { data: claimHash, writeContract: claim, error: claimErrorHook } = useWriteContract();
@@ -151,13 +156,16 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         functionName: 'balanceOf',
         args: (shouldFetchBalance && airdrop.contractAddress) ? [getAddress(airdrop.contractAddress)] : undefined,
         chainId: airdrop.network ? chainIdMap[airdrop.network] : undefined,
-        // FIX: Removed 'query: { enabled: ... }' because wagmi's StrictOmit type excludes 'enabled'.
-        // Instead, we rely on passing 'undefined' to 'address' to disable the query.
     });
+
+    let abi;
+    if (airdrop.type === AirdropType.Whitelist) abi = airdropABI;
+    else if (airdrop.type === AirdropType.Quest) abi = questAirdropABI;
+    else abi = loopAirdropABI;
 
     const contractReadConfig = {
         address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
-        abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
+        abi,
     };
     
     const { data: contractClaimedCount, refetch: refetchClaimedCount } = useReadContract({
@@ -165,10 +173,13 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         functionName: 'claimedCount',
     });
     
+    // For Loop, 'claimed' means in cooldown, but standard 'claimed' view function might differ.
+    // Assuming the Loop contract has similar `claimed` or logic, but we rely mostly on DB for status.
     const { data: hasClaimed, isLoading: isCheckingClaimedStatus, refetch: refetchHasClaimed } = useReadContract({
         ...contractReadConfig,
-        functionName: 'claimed',
-        args: address ? [address] : undefined,
+        functionName: 'claimed', // Note: Loop contract doesn't have standard 'claimed(address)', it has `lastClaimTime`. This hook might fail for Loop but that's fine, we rely on DB.
+        args: address && airdrop.type !== AirdropType.Loop ? [address] : undefined,
+        query: { enabled: airdrop.type !== AirdropType.Loop } // Disable for Loop
     });
 
     // Computed state
@@ -390,9 +401,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             const amountInBaseUnits = parseUnits(questAmount, airdrop.tokenDecimals || 18);
             const questIdBytes32 = pad(toHex(airdrop.id), { size: 32 });
             
+            const isLoop = airdrop.type === AirdropType.Loop;
+
             claim({
                 address: getAddress(airdrop.contractAddress),
-                abi: questAirdropABI,
+                abi: isLoop ? loopAirdropABI : questAirdropABI,
                 functionName: 'claim',
                 args: [amountInBaseUnits, questIdBytes32, questSignature],
                 account: address,
@@ -459,15 +472,21 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 throw new Error("Wallet is not connected to a chain, or the chain switch failed.");
             }
 
+            let contractAbi;
+             if (airdrop.type === AirdropType.Whitelist) contractAbi = airdropABI;
+             else if (airdrop.type === AirdropType.Quest) contractAbi = questAirdropABI;
+             else contractAbi = loopAirdropABI;
+
             // Step 2: Execute the withdrawal.
             setWithdrawStatus('withdrawing');
             withdraw({
                 address: getAddress(airdrop.contractAddress),
-                abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
+                abi: contractAbi,
                 functionName: 'emergencyWithdraw',
                 account: address,
                 // Fix: Added the required `chain` property to the `withdraw` call to resolve the TypeScript error.
                 chain: finalChain,
+                args: [], // Added empty args to satisfy TS
             });
         } catch (err: any) {
             console.error('[Withdraw] Process error:', err);
@@ -499,7 +518,6 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 try {
                     const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
                     if (response.ok) {
-                        // FIX: Check for 'status' in the response. If 'claimed', update state immediately.
                         const data = await response.json();
                         if (data.status === 'claimed') {
                             setEligibility({ status: 'claimed', error: null });
@@ -520,8 +538,8 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         }
     }, [airdrop.id, airdrop.type, address, isConnected, computedStatus, showOwnerControls]);
 
-    useEffect(() => { // Quest eligibility
-        if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && airdrop.type === AirdropType.Quest) {
+    useEffect(() => { // Quest/Loop eligibility
+        if (computedStatus === AirdropStatus.InProgress && !showOwnerControls && isConnected && address && (airdrop.type === AirdropType.Quest || airdrop.type === AirdropType.Loop)) {
             const checkQuestEligibility = async () => {
                  // Don't show loader on refetch if we already have a status
                 if (questEligibility.status === 'idle' || questEligibility.status === 'checking') {
@@ -530,8 +548,18 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 try {
                     const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
                     if (response.ok) {
-                        const { status } = await response.json(); // 'verified' or 'claimed' or 'eligible'
+                        const data = await response.json();
+                        const status = data.status; // 'verified' or 'claimed' or 'eligible'
                         setQuestEligibility({ status, error: null });
+                        
+                        if (airdrop.type === AirdropType.Loop) {
+                            if (status === 'claimed' && data.nextClaimAt) {
+                                setNextClaimAt(new Date(data.nextClaimAt));
+                            } else {
+                                setNextClaimAt(null); // Reset if eligible
+                            }
+                        }
+
                         if (status === 'verified' && !questSignature) {
                              handleQuestVerify();
                         }
@@ -554,9 +582,14 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         if (isApproveSuccess) {
             setFundingStatus('funding');
             try {
+                let contractAbi;
+                if (airdrop.type === AirdropType.Whitelist) contractAbi = airdropABI;
+                else if (airdrop.type === AirdropType.Quest) contractAbi = questAirdropABI;
+                else contractAbi = loopAirdropABI;
+
                 fund({
                     address: getAddress(airdrop.contractAddress!),
-                    abi: airdrop.type === AirdropType.Whitelist ? airdropABI : questAirdropABI,
+                    abi: contractAbi,
                     functionName: 'fund',
                     args: [totalAmountInBaseUnits],
                     account: address,
@@ -598,7 +631,17 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                 setClaimStatus('success');
                 setIsSuccessModalOpen(true);
                 // Refetch all relevant on-chain data after a successful claim
-                refetchHasClaimed();
+                if (airdrop.type !== AirdropType.Loop) {
+                    refetchHasClaimed();
+                } else {
+                    // For loop, manually update eligibility to claimed with delay
+                    setQuestEligibility({status: 'claimed', error: null});
+                    // We should also calculate next claim time roughly
+                     if (airdrop.loopInterval) {
+                        const now = new Date();
+                        setNextClaimAt(new Date(now.getTime() + airdrop.loopInterval * 1000));
+                    }
+                }
                 refetchClaimedCount();
                 triggerRefetchBalance();
 
@@ -615,7 +658,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
             }
         };
         updateAndRefetch();
-    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed, refetchClaimedCount, triggerRefetchBalance]);
+    }, [isClaimedSuccess, airdrop.id, address, refetchHasClaimed, refetchClaimedCount, triggerRefetchBalance, airdrop.type, airdrop.loopInterval]);
 
     useEffect(() => { // Handle claim error
         if (claimErrorHook) {
@@ -744,11 +787,16 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     } else if (questVerifyStatus === 'error') {
         questButtonText = 'Retry Verification';
     }
+    
+    if (airdrop.type === AirdropType.Loop && questEligibility.status === 'claimed') {
+        isQuestButtonDisabled = true;
+        // If we have a nextClaimAt date, disable verify button, but text is handled in UI usually
+    }
+
 
     // FIX: Determine if we have a definitive 'claimed' status from the DB to bypass blockchain latency.
-    const dbSaysClaimed = eligibility.status === 'claimed' || questEligibility.status === 'claimed';
+    const dbSaysClaimed = eligibility.status === 'claimed' || (airdrop.type !== AirdropType.Loop && questEligibility.status === 'claimed');
     // FIX: Consider loading finished if DB has returned a definitive status (eligible, ineligible, claimed).
-    // We only really need to "wait" if we are strictly relying on the slow wagmi hook and have no DB info yet.
     const effectiveLoading = (isCheckingClaimedStatus && eligibility.status === 'idle' && questEligibility.status === 'idle') || eligibility.status === 'checking' || questEligibility.status === 'checking';
 
     return {
@@ -766,20 +814,20 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         ownerAction,
 
         // Claiming
-        // FIX: Override 'isCheckingClaimedStatus' with our effective loading state that respects DB results.
         isCheckingClaimedStatus: effectiveLoading,
-        // FIX: Override 'hasClaimed' if DB says it is claimed.
-        hasClaimed: hasClaimed || dbSaysClaimed,
+        // For Loop, hasClaimed from hook is irrelevant, and dbSaysClaimed is only true if we are in cooldown.
+        hasClaimed: hasClaimed || dbSaysClaimed, 
         eligibility,
         claimStatus,
         claimButtonText: claimButtonText(),
         
-        // Quest
+        // Quest / Loop
         questEligibility,
         questVerifyStatus,
         questSignature,
         questButtonText,
         isQuestButtonDisabled,
+        nextClaimAt,
         
         // Deleting
         isDeleteModalOpen,

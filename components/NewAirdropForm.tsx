@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Airdrop, AirdropType, AirdropStatus, WhitelistEntry, Network, Token } from '../types';
 import Papa from 'papaparse';
 import { getAddress, isAddress, parseEventLogs } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
-import { airdropFactoryABI, airdropABI, questAirdropFactoryABI } from '../lib/abi';
+import { airdropFactoryABI, airdropABI, questAirdropFactoryABI, loopFactoryABI } from '../lib/abi';
 import * as api from '../lib/api';
 
 interface NewAirdropFormProps {
@@ -50,6 +51,9 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
   const [fetchedVerifierAddress, setFetchedVerifierAddress] = useState<`0x${string}` | null>(null);
   const [recipientCount, setRecipientCount] = useState(0);
   const [maxReward, setMaxReward] = useState(0);
+  
+  // Loop-specific fields
+  const [loopInterval, setLoopInterval] = useState(24); // Default 24 hours
 
   const [totalAmount, setTotalAmount] = useState(0);
   const [error, setError] = useState('');
@@ -70,6 +74,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
   // Quest contract hooks
   const { data: createQuestHash, writeContract: createQuestContract, error: createQuestError } = useWriteContract();
   const { isSuccess: isCreateQuestSuccess, data: createQuestReceipt } = useWaitForTransactionReceipt({ hash: createQuestHash });
+
+  // Loop contract hooks
+  const { data: createLoopHash, writeContract: createLoopContract, error: createLoopError } = useWriteContract();
+  const { isSuccess: isCreateLoopSuccess, data: createLoopReceipt } = useWaitForTransactionReceipt({ hash: createLoopHash });
 
   const selectedToken = tokens.find(t => t.contractAddress === selectedTokenAddress);
   const selectedNetwork = networks.find(n => n.networkKey === network);
@@ -134,7 +142,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
   }, [network]);
 
   useEffect(() => {
-    if (airdropType === AirdropType.Quest && !fetchedVerifierAddress) {
+    if ((airdropType === AirdropType.Quest || airdropType === AirdropType.Loop) && !fetchedVerifierAddress) {
       const fetchAddress = async () => {
         try {
           const address = await api.getVerifierAddress();
@@ -316,6 +324,51 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
       setStatus('error');
     }
   };
+  
+  const handleLoopSubmit = async () => {
+    if (!commonValidation()) return;
+    if (!fetchedVerifierAddress) {
+      setError('Verifier address could not be loaded. Please wait or refresh.');
+      return;
+    }
+    if (!targetContract || !isAddress(targetContract)) {
+      setError('Please provide a valid target contract address.');
+      return;
+    }
+    if (!topic0.trim()) {
+      setError('Please provide the event signature.');
+      return;
+    }
+    if (recipientCount <= 0 || maxReward <= 0) {
+      setError('Recipient count and reward must be greater than zero.');
+      return;
+    }
+    if (!loopInterval || loopInterval <= 0) {
+       setError('Please specify a valid cooldown interval.');
+       return;
+    }
+    if (!selectedNetwork?.repeatFactoryAddress) {
+       setError('Loop Airdrops are not supported on this network yet.');
+       return;
+    }
+
+    try {
+      setStatus('creatingContract');
+      createLoopContract({
+        address: selectedNetwork.repeatFactoryAddress,
+        abi: loopFactoryABI,
+        functionName: 'createRepeatAirdrop',
+        args: [getAddress(selectedToken!.contractAddress), address!, fetchedVerifierAddress, BigInt(loopInterval)],
+        account: address,
+        chain: chain,
+      });
+      setStatus('waitingForCreation');
+    } catch (err: any) {
+      console.error("Loop creation process failed:", err);
+      setError(err.message || 'An unknown error occurred.');
+      setStatus('error');
+    }
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -324,8 +377,10 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
     setStatus('idle');
     if (airdropType === AirdropType.Whitelist) {
       await handleWhitelistSubmit();
-    } else {
+    } else if (airdropType === AirdropType.Quest) {
       await handleQuestSubmit();
+    } else {
+      await handleLoopSubmit();
     }
   };
 
@@ -344,11 +399,13 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
     }
   }, [status, airdropType, merkleRoot, address, selectedToken, createAirdropContract, chain, selectedNetwork]);
 
-  // Whitelist/Quest Effect: Parse contract address from logs
+  // Whitelist/Quest/Loop Effect: Parse contract address from logs
   useEffect(() => {
     const isWhitelist = airdropType === AirdropType.Whitelist;
-    const receipt = isWhitelist ? createReceipt : createQuestReceipt;
-    const isSuccess = isWhitelist ? isCreateSuccess : isCreateQuestSuccess;
+    const isQuest = airdropType === AirdropType.Quest;
+    
+    const receipt = isWhitelist ? createReceipt : (isQuest ? createQuestReceipt : createLoopReceipt);
+    const isSuccess = isWhitelist ? isCreateSuccess : (isQuest ? isCreateQuestSuccess : isCreateLoopSuccess);
 
     if (isSuccess && receipt) {
         try {
@@ -359,23 +416,30 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
                     eventName: 'AirdropCreated',
                 });
                 if (logs.length === 0) throw new Error('AirdropCreated event not found.');
-                
                 const newAddress = logs[0].args.airdrop;
                 if (!newAddress) throw new Error("Parsed log is missing the new contract address argument.");
-                
                 setNewAirdropAddress(newAddress);
                 setStatus('settingMerkle');
-            } else { // It's a Quest airdrop
+            } else if (isQuest) {
                 const logs = parseEventLogs({
                     abi: questAirdropFactoryABI,
                     logs: receipt.logs,
                     eventName: 'QuestAirdropCreated',
                 });
                 if (logs.length === 0) throw new Error('QuestAirdropCreated event not found.');
-                
                 const newAddress = logs[0].args.quest;
                 if (!newAddress) throw new Error("Parsed log is missing the new contract address argument.");
-                
+                setNewAirdropAddress(newAddress);
+                setStatus('saving');
+            } else {
+                const logs = parseEventLogs({
+                    abi: loopFactoryABI,
+                    logs: receipt.logs,
+                    eventName: 'RepeatAirdropCreated',
+                });
+                 if (logs.length === 0) throw new Error('RepeatAirdropCreated event not found.');
+                const newAddress = logs[0].args.campaign;
+                if (!newAddress) throw new Error("Parsed log is missing the new contract address argument.");
                 setNewAirdropAddress(newAddress);
                 setStatus('saving');
             }
@@ -385,7 +449,7 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
             setStatus('error');
         }
     }
-  }, [isCreateSuccess, createReceipt, isCreateQuestSuccess, createQuestReceipt, airdropType]);
+  }, [isCreateSuccess, createReceipt, isCreateQuestSuccess, createQuestReceipt, isCreateLoopSuccess, createLoopReceipt, airdropType]);
 
 
   // Whitelist Effect: Set Merkle Root
@@ -425,19 +489,17 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
                     name, description, image: imageUrl, action, type: AirdropType.Whitelist,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
-                    // FIX: Add missing 'creatorAddress' property to the payload to satisfy the Airdrop type.
                     creatorAddress: address!,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     whitelist, contractAddress: newAirdropAddress, merkleRoot: merkleRoot!,
                     recipientCount: whitelist.length,
                     maxReward: whitelistMaxReward,
                 };
-            } else { // Quest
+            } else if (airdropType === AirdropType.Quest) {
                 payload = {
                     name, description, image: imageUrl, action, type: AirdropType.Quest,
                     tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
                     network, totalAmount, status: AirdropStatus.Draft,
-                    // FIX: Add missing 'creatorAddress' property to the payload to satisfy the Airdrop type.
                     creatorAddress: address!,
                     startTime: new Date(startTime), endTime: new Date(endTime),
                     contractAddress: newAirdropAddress,
@@ -445,6 +507,20 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
                     targetContract: getAddress(targetContract),
                     topic0: topic0.trim(),
                     userTopicIndex: userTopicIndex,
+                };
+            } else { // Loop
+                 payload = {
+                    name, description, image: imageUrl, action, type: AirdropType.Loop,
+                    tokenAddress: selectedToken.contractAddress, tokenSymbol: selectedToken.symbol, tokenDecimals: selectedToken.decimals,
+                    network, totalAmount, status: AirdropStatus.Draft,
+                    creatorAddress: address!,
+                    startTime: new Date(startTime), endTime: new Date(endTime),
+                    contractAddress: newAirdropAddress,
+                    recipientCount: Number(recipientCount), maxReward: Number(maxReward),
+                    targetContract: getAddress(targetContract),
+                    topic0: topic0.trim(),
+                    userTopicIndex: userTopicIndex,
+                    loopInterval: loopInterval, // Save as hours (integer)
                 };
             }
 
@@ -457,16 +533,16 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
         }
     };
     saveAirdrop();
-  }, [status, newAirdropAddress, selectedToken, airdropType, action, description, endTime, image, maxReward, merkleRoot, name, network, onAddAirdrop, recipientCount, startTime, targetContract, topic0, totalAmount, userTopicIndex, whitelist, address]);
+  }, [status, newAirdropAddress, selectedToken, airdropType, action, description, endTime, image, maxReward, merkleRoot, name, network, onAddAirdrop, recipientCount, startTime, targetContract, topic0, totalAmount, userTopicIndex, whitelist, address, loopInterval]);
 
 
   useEffect(() => {
-      const anyError = createError || setMerkleError || createQuestError;
+      const anyError = createError || setMerkleError || createQuestError || createLoopError;
       if (anyError) {
           setError(`Transaction failed: ${anyError.message}`);
           setStatus('error');
       }
-  }, [createError, setMerkleError, createQuestError]);
+  }, [createError, setMerkleError, createQuestError, createLoopError]);
 
   const renderWhitelistFields = () => (
     <div className="space-y-4">
@@ -512,19 +588,26 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
             <option value={3}>Topic 3</option>
         </select>
       </div>
+       {airdropType === AirdropType.Loop && (
+          <div>
+              <label htmlFor="loopInterval" className="block text-xs font-medium text-slate-600 mb-1">Cooldown (Hours)</label>
+              <p className="text-xs text-slate-500 mb-2">How many hours must a user wait before claiming again?</p>
+              <input type="number" id="loopInterval" value={loopInterval} onChange={e => setLoopInterval(Number(e.target.value))} required min={1} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+          </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-            <label htmlFor="recipientCount" className="block text-xs font-medium text-slate-600 mb-1">Max Recipients</label>
+            <label htmlFor="recipientCount" className="block text-xs font-medium text-slate-600 mb-1">Max Claims (Total)</label>
             <input type="number" id="recipientCount" value={recipientCount || ''} onChange={e => setRecipientCount(Number(e.target.value))} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
         </div>
          <div>
-            <label htmlFor="maxReward" className="block text-xs font-medium text-slate-600 mb-1">Reward Per Recipient</label>
+            <label htmlFor="maxReward" className="block text-xs font-medium text-slate-600 mb-1">Reward Per Claim</label>
             <input type="number" id="maxReward" value={maxReward || ''} onChange={e => setMaxReward(Number(e.target.value))} required className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"/>
         </div>
       </div>
       {totalAmount > 0 && (
           <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-md">
-              <p><strong>Total Amount:</strong> {totalAmount.toLocaleString()} {selectedToken?.symbol || ''}</p>
+              <p><strong>Total Amount Needed:</strong> {totalAmount.toLocaleString()} {selectedToken?.symbol || ''}</p>
           </div>
       )}
     </div>
@@ -608,6 +691,18 @@ const NewAirdropForm: React.FC<NewAirdropFormProps> = ({ onAddAirdrop }) => {
                       }`}
                   >
                       <span className="font-semibold text-sm text-slate-800">Quest</span>
+                  </button>
+                  <button
+                      type="button"
+                      onClick={() => setAirdropType(AirdropType.Loop)}
+                      aria-pressed={airdropType === AirdropType.Loop}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 border rounded-lg text-left transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                          airdropType === AirdropType.Loop
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+                      }`}
+                  >
+                      <span className="font-semibold text-sm text-slate-800">Loop</span>
                   </button>
               </div>
           </div>

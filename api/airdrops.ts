@@ -1,3 +1,4 @@
+
 console.log('[Vercel API] airdrops.ts module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
@@ -69,11 +70,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 // Check airdrop type first
-                const { rows: airdropTypeRows } = await sql`SELECT type FROM airdrops WHERE id = ${Number(airdropId)}`;
+                const { rows: airdropTypeRows } = await sql`SELECT type, loop_interval FROM airdrops WHERE id = ${Number(airdropId)}`;
                 if (airdropTypeRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
-                const airdropType = airdropTypeRows[0].type;
+                const airdrop = airdropTypeRows[0];
 
-                if (airdropType === 'Whitelist') {
+                if (airdrop.type === 'Whitelist') {
                     const { rows: userEntries } = await sql`
                         SELECT amount, proof, status FROM whitelist_entries 
                         WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
@@ -89,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         amount: String(userEntry.amount), 
                         proof 
                     });
-                } else if (airdropType === 'Quest') {
+                } else if (airdrop.type === 'Quest') {
                     const { rows: questEntries } = await sql`
                         SELECT status FROM quest_entries
                         WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
@@ -98,6 +99,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return res.status(404).json({ message: 'User has not completed this quest yet.' });
                     }
                     return res.status(200).json({ status: questEntries[0].status });
+                } else if (airdrop.type === 'Loop') {
+                    const { rows: loopEntries } = await sql`
+                        SELECT status, last_claimed_at FROM loop_entries
+                        WHERE airdrop_id = ${Number(airdropId)} AND user_address = ${getAddress(userAddress as string)};
+                    `;
+                    
+                    if (loopEntries.length === 0) {
+                         // Never claimed, so eligible (pending check)
+                         // For Loop, we can say 'eligible' which means "not recently claimed"
+                         return res.status(200).json({ status: 'eligible', nextClaimAt: null });
+                    }
+
+                    const lastClaimedAt = new Date(loopEntries[0].last_claimed_at);
+                    const now = new Date();
+                    const intervalHours = airdrop.loop_interval || 0;
+                    // Convert hours to milliseconds for date comparison
+                    const nextClaimTime = new Date(lastClaimedAt.getTime() + intervalHours * 3600 * 1000);
+
+                    if (now >= nextClaimTime) {
+                         // Time passed, eligible again
+                        return res.status(200).json({ status: 'eligible', nextClaimAt: null });
+                    } else {
+                         // Still in cooldown
+                        return res.status(200).json({ status: 'claimed', nextClaimAt: nextClaimTime.toISOString() });
+                    }
+
                 } else {
                     return res.status(400).json({ message: 'Unknown airdrop type.' });
                 }
@@ -115,6 +142,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         CASE
                             WHEN a.type = 'Whitelist' THEN (SELECT COUNT(*) FROM whitelist_entries we WHERE we.airdrop_id = a.id AND we.status = 'claimed')
                             WHEN a.type = 'Quest' THEN (SELECT COUNT(*) FROM quest_entries qe WHERE qe.airdrop_id = a.id AND qe.status = 'claimed')
+                             -- For Loop, calculate total individual claims or unique claimers? Usually unique claimers for progress bars.
+                             -- But since one user can claim multiple times, total distributed is better tracked by claim_count.
+                             -- Let's just count unique users who have claimed at least once for the "recipient" progress bar.
+                            WHEN a.type = 'Loop' THEN (SELECT COUNT(*) FROM loop_entries le WHERE le.airdrop_id = a.id AND le.claim_count > 0)
                             ELSE 0
                         END as claimed_count
                     FROM
@@ -148,27 +179,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { airdropId, userAddress } = req.body;
                 if (!airdropId || !userAddress || !isAddress(userAddress)) return res.status(400).json({ message: 'Missing airdropId or userAddress.' });
 
-                const { rows: airdropRows } = await sql`SELECT network, topic0, max_reward, token_decimals, target_contract, user_topic_index FROM airdrops WHERE id = ${airdropId}`;
+                const { rows: airdropRows } = await sql`SELECT type, network, topic0, max_reward, token_decimals, target_contract, user_topic_index, loop_interval FROM airdrops WHERE id = ${airdropId}`;
                 if (airdropRows.length === 0) return res.status(404).json({ message: 'Airdrop not found.' });
                 const airdrop = airdropRows[0];
                 
+                // Logic for Quest vs Loop
+                if (airdrop.type === 'Quest') {
+                     const { rows: existingEntries } = await sql`
+                        SELECT status FROM quest_entries 
+                        WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)};
+                    `;
+                    if (existingEntries.length > 0) {
+                        if (existingEntries[0].status === 'claimed') {
+                            return res.status(400).json({ message: 'You have already claimed this quest reward.' });
+                        }
+                         // If 'verified', skip blockchain check and re-sign.
+                        const amount = String(airdrop.max_reward);
+                        const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
+                        return res.status(200).json({ amount, signature });
+                    }
+                } else if (airdrop.type === 'Loop') {
+                     const { rows: loopEntries } = await sql`
+                        SELECT last_claimed_at FROM loop_entries 
+                        WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)};
+                    `;
+                    if (loopEntries.length > 0) {
+                        const lastClaim = new Date(loopEntries[0].last_claimed_at);
+                        const now = new Date();
+                        const intervalHours = airdrop.loop_interval || 0;
+                        // Convert hours to milliseconds
+                        if (now.getTime() < lastClaim.getTime() + intervalHours * 3600 * 1000) {
+                             return res.status(400).json({ message: 'Cooldown is still active.' });
+                        }
+                    }
+                }
+
                 const { rows: networkRows } = await sql`SELECT * FROM networks WHERE network_key = ${airdrop.network}`;
                 if (networkRows.length === 0) return res.status(400).json({ message: `Network configuration for '${airdrop.network}' not found.` });
                 const network = networkRows[0];
-
-                const { rows: existingEntries } = await sql`
-                    SELECT status FROM quest_entries 
-                    WHERE airdrop_id = ${airdropId} AND user_address = ${getAddress(userAddress)};
-                `;
-                if (existingEntries.length > 0) {
-                    if (existingEntries[0].status === 'claimed') {
-                        return res.status(400).json({ message: 'You have already claimed this quest reward.' });
-                    }
-                     // If 'verified', skip blockchain check and re-sign.
-                    const amount = String(airdrop.max_reward);
-                    const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
-                    return res.status(200).json({ amount, signature });
-                }
                 
                 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
                 if (!alchemyApiKey) throw new Error('Alchemy API key is not configured on the server.');
@@ -233,11 +281,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const amount = String(airdrop.max_reward);
                 const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
 
-                await sql`
-                    INSERT INTO quest_entries (airdrop_id, user_address, status) 
-                    VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified')
-                    ON CONFLICT (airdrop_id, user_address) DO NOTHING;
-                `;
+                // Only insert 'verified' for Quest. Loop entries are managed on claim.
+                if (airdrop.type === 'Quest') {
+                    await sql`
+                        INSERT INTO quest_entries (airdrop_id, user_address, status) 
+                        VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified')
+                        ON CONFLICT (airdrop_id, user_address) DO NOTHING;
+                    `;
+                }
                 
                 return res.status(200).json({ amount, signature });
             } catch (error) {
@@ -259,6 +310,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await sql`UPDATE whitelist_entries SET status = 'claimed', claimed_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
                 } else if (airdropRows[0].type === 'Quest') {
                     await sql`UPDATE quest_entries SET status = 'claimed', updated_at = NOW() WHERE airdrop_id = ${airdropId} AND user_address = ${checkedUserAddress};`;
+                } else if (airdropRows[0].type === 'Loop') {
+                    await sql`
+                        INSERT INTO loop_entries (airdrop_id, user_address, last_claimed_at, claim_count, status)
+                        VALUES (${airdropId}, ${checkedUserAddress}, NOW(), 1, 'claimed')
+                        ON CONFLICT (airdrop_id, user_address)
+                        DO UPDATE SET last_claimed_at = NOW(), claim_count = loop_entries.claim_count + 1, status = 'claimed', updated_at = NOW();
+                    `;
                 }
 
                 return res.status(200).json({ message: 'Claim updated successfully.' });
@@ -337,6 +395,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         VALUES (${name}, ${description || null}, ${imageUrl}, ${action || null}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${topic0}, ${userTopicIndex}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
+                } else if (type === 'Loop') {
+                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex, loopInterval } = req.body;
+                    
+                    const imageUrl = image || defaultImage;
+                    if (!imageUrl.endsWith('.svg')) {
+                       return res.status(400).json({ message: 'Image URL must be a link to an SVG file.' });
+                   }
+                   
+                    const verifierAddress = process.env.VERIFIER_ADDRESS;
+                    if (!verifierAddress) {
+                       throw new Error("Verifier address is not configured on the server.");
+                    }
+                   if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex || !loopInterval) return res.status(400).json({ message: 'Missing required fields for Loop airdrop.' });
+                    
+                   const { rows } = await client.sql`
+                       INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topic0, user_topic_index, loop_interval, created_at)
+                       VALUES (${name}, ${description || null}, ${imageUrl}, ${action || null}, 'Loop', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${topic0}, ${userTopicIndex}, ${loopInterval}, NOW())
+                       RETURNING *;`;
+                   createdAirdrop = rows[0];
                 } else {
                     return res.status(400).json({ message: 'Invalid airdrop type.' });
                 }
@@ -363,6 +440,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (getAddress(airdropRows[0].creator_address) !== getAddress(userAddress)) { await client.sql`ROLLBACK`; return res.status(403).json({ message: 'You are not authorized to delete this airdrop.' }); }
             await client.sql`DELETE FROM whitelist_entries WHERE airdrop_id = ${Number(airdropId)};`;
             await client.sql`DELETE FROM quest_entries WHERE airdrop_id = ${Number(airdropId)};`;
+            await client.sql`DELETE FROM loop_entries WHERE airdrop_id = ${Number(airdropId)};`;
             await client.sql`DELETE FROM airdrops WHERE id = ${Number(airdropId)};`;
             await client.sql`COMMIT`;
             return res.status(200).json({ message: 'Airdrop deleted successfully.' });
