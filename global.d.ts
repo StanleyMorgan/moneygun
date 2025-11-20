@@ -25,12 +25,12 @@ declare global {
         loadingLabel?: string;
       };
       'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        disabled?: boolean;
-        balance?: 'show' | 'hide';
-        size?: 'md' | 'sm';
-        label?: string;
-        loadingLabel?: string;
-        namespace?: 'eip155' | 'solana' | 'bip122';
+        disabled: boolean;
+        balance: 'show' | 'hide';
+        size: 'md' | 'sm';
+        label: string;
+        loadingLabel: string;
+        namespace: 'eip155' | 'solana' | 'bip122';
       };
     }
   }
@@ -46,12 +46,12 @@ declare module 'react' {
         loadingLabel?: string;
       };
       'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        disabled?: boolean;
-        balance?: 'show' | 'hide';
-        size?: 'md' | 'sm';
-        label?: string;
-        loadingLabel?: string;
-        namespace?: 'eip155' | 'solana' | 'bip122';
+        disabled: boolean;
+        balance: 'show' | 'hide';
+        size: 'md' | 'sm';
+        label: string;
+        loadingLabel: string;
+        namespace: 'eip155' | 'solana' | 'bip122';
       };
     }
   }

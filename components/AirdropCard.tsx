@@ -144,7 +144,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         if (airdrop.type === AirdropType.Quest || airdrop.type === AirdropType.Loop) {
             if (questEligibility.status === 'checking') return <p className="text-xs text-slate-500 animate-pulse">Checking status...</p>;
             // If Loop is eligible (not claimed recently) OR Quest is verified
-            if (questEligibility.status === 'verified' || questEligibility.status === 'eligible' || questSignature) {
+            if (questEligibility.status === 'verified' || questSignature) {
                 return <button onClick={handleClaim} disabled={claimStatus !== 'idle' && claimStatus !== 'error'} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-slate-400 disabled:cursor-not-allowed">{claimButtonText}</button>;
             }
             
@@ -186,24 +186,18 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                 <div className="w-1/2"><p className="text-slate-500">End Time</p><p className="font-medium text-slate-800">{formatDateTime(airdrop.endTime)}</p></div>
             </div>
 
-            {computedStatus === AirdropStatus.InProgress && total > 0 && airdrop.type !== AirdropType.Loop && (
+            {computedStatus === AirdropStatus.InProgress && total > 0 && (
                 <div className="w-full bg-slate-200 rounded-full h-2">
                     <div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label={`Airdrop progress: ${progressPercentage.toFixed(0)}% claimed`}></div>
                 </div>
-            )}
-             {computedStatus === AirdropStatus.InProgress && airdrop.type === AirdropType.Loop && (
-                 // For Loop, just show a generic active bar or maybe the personal cooldown progress? Let's keep it simple for now.
-                 <div className="w-full bg-slate-100 rounded-lg h-2 overflow-hidden">
-                      <div className="bg-cyan-500 h-2 w-full animate-pulse opacity-30"></div>
-                 </div>
             )}
             
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div><p className="text-slate-500">Network</p><p className="font-medium text-slate-800">{formatNetworkName(airdrop.network)}</p></div>
                 <div><p className="text-slate-500">Total Amount</p><p className="font-medium text-slate-800">{formatNumber(airdrop.totalAmount)} {airdrop.tokenSymbol}</p></div>
                 <div>
-                    <p className="text-slate-500">{airdrop.type === AirdropType.Loop ? 'Active Claimers' : 'Claimed / Total'}</p>
-                    <p className="font-medium text-slate-800">{airdrop.type === AirdropType.Loop ? claimed : `${claimed} / ${total}`}</p>
+                    <p className="text-slate-500">Claimed / Total</p>
+                    <p className="font-medium text-slate-800">{claimed} / {total}</p>
                 </div>
                 {viewAsOwner ? (
                     <div>

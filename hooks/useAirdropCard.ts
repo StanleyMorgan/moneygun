@@ -639,7 +639,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                     // We should also calculate next claim time roughly
                      if (airdrop.loopInterval) {
                         const now = new Date();
-                        setNextClaimAt(new Date(now.getTime() + airdrop.loopInterval * 1000));
+                        setNextClaimAt(new Date(now.getTime() + airdrop.loopInterval * 60 * 60 * 1000));
                     }
                 }
                 refetchClaimedCount();
