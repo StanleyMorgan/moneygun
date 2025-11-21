@@ -166,6 +166,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const contractReadConfig = {
         address: airdrop.contractAddress ? getAddress(airdrop.contractAddress) : undefined,
         abi,
+        chainId: airdrop.network ? chainIdMap[airdrop.network] : undefined,
     };
     
     const { data: contractClaimedCount, refetch: refetchClaimedCount } = useReadContract({
