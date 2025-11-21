@@ -162,7 +162,7 @@ const App: React.FC = () => {
           <button
             onClick={handleCreateNew}
             disabled={!canCreateAirdrop}
-            title={!canCreateAirdrop ? "Вы достигли максимального лимита в 3 аирдропа." : "Создать новый аирдроп"}
+            title={!canCreateAirdrop ? "You’ve reached the maximum limit of 3 airdrops." : "Create a new airdrop"}
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
               view === 'new-airdrop'
                 ? 'bg-purple-600 text-white'
