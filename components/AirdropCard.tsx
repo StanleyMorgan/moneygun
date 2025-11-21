@@ -169,11 +169,37 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     const shareText = `Claimed ${rewardString} in "${airdrop.name}" — Moneygun makes it fun.`;
     const shareUrl = `https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/frame/${airdrop.id}`)}`;
 
+    // Helper to render the image, wrapped in a link if action exists
+    const renderImage = () => {
+        const img = (
+            <img 
+                src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'} 
+                alt={`${airdrop.name} airdrop icon`} 
+                className={`w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0 ${airdrop.action ? 'hover:opacity-80 transition-opacity' : ''}`} 
+            />
+        );
+
+        if (airdrop.action) {
+            return (
+                <a 
+                    href={airdrop.action}
+                    onClick={handleActionClick}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
+                    aria-label={`View details for ${airdrop.name}`}
+                >
+                    {img}
+                </a>
+            );
+        }
+        return img;
+    };
 
     return (
         <div className="relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 space-y-4">
             <div className="flex items-start gap-4">
-                <img src={airdrop.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg'} alt={`${airdrop.name} airdrop icon`} className="w-12 h-12 rounded-lg object-cover bg-slate-100 flex-shrink-0" />
+                {renderImage()}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
                         <h2 className="text-base font-semibold text-slate-800 truncate pr-2">{airdrop.name}</h2>
