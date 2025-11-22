@@ -63,7 +63,8 @@ const App: React.FC = () => {
   const userAirdropsCount = isConnected && address
     ? airdrops.filter(ad => ad.creatorAddress && getAddress(ad.creatorAddress) === getAddress(address)).length
     : 0;
-  const canCreateAirdrop = userAirdropsCount < 3;
+  // FIX: Temporarily disabled creation by setting limit to 0 (was 3).
+  const canCreateAirdrop = userAirdropsCount < 0;
 
 
   const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
