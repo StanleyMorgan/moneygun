@@ -8,7 +8,6 @@ import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
 import { getAirdrops, createAirdrop, getNetworks } from './lib/api';
 import { useAccount } from 'wagmi';
-import { getAddress } from 'viem';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'new-airdrop'>('dashboard');

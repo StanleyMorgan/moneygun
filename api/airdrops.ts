@@ -355,9 +355,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 
                 const normalizedCreator = getAddress(creatorAddress);
 
-                // 1. Check if user is whitelisted
+                // 1. Check if user is whitelisted (Case insensitive check for robustness)
                 const { rows: whitelistRows } = await client.sql`
-                    SELECT creation_limit FROM allowed_creators WHERE address = ${normalizedCreator};
+                    SELECT creation_limit FROM allowed_creators WHERE LOWER(address) = LOWER(${normalizedCreator});
                 `;
 
                 if (whitelistRows.length === 0) {
