@@ -3,7 +3,7 @@ console.log('[Vercel API] airdrops.ts module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic, Log } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
@@ -245,7 +245,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const now = new Date();
                         const intervalHours = airdrop.loop_interval || 0;
                         // Convert hours to milliseconds
-                        if (now.getTime() < lastClaim.getTime() + intervalHours * 3600 * 1000) {
+                        // Use a safer check to ensure 1970 timestamps don't block if accidentally set.
+                        if (lastClaim.getFullYear() > 1970 && now.getTime() < lastClaim.getTime() + intervalHours * 3600 * 1000) {
                              return res.status(400).json({ message: 'Cooldown is still active.' });
                         }
                     }
@@ -311,19 +312,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const logs = await alchemyClient.getLogs(getLogsParams);
                 
-                const isQuestCompleted = logs.length > 0;
+                // FIX: Explicitly find the log that contains the user's address in the correct topic index.
+                // This is critical to prevent spoofing where a filter might match broadly (e.g. wildcard or wrong position).
+                // We also extract the transaction hash from this verified log for auditing.
+                const validLog = logs.find((log: any) => {
+                    // Access the specific topic index where the user address is expected.
+                    // Note: log.topics includes the event signature at index 0.
+                    const logTopic = log.topics[userTopicIndex];
+                    if (!logTopic) return false;
+                    
+                    // Strict, case-insensitive comparison of the 32-byte padded address
+                    return logTopic.toLowerCase() === paddedUserAddress.toLowerCase();
+                });
 
-                if (!isQuestCompleted) return res.status(400).json({ message: 'Quest completion event not found on-chain.' });
+                if (!validLog) return res.status(400).json({ message: 'Quest completion event not found on-chain for this user.' });
 
+                const transactionHash = validLog.transactionHash;
                 const amount = String(airdrop.max_reward);
                 const signature = await signQuestData(userAddress, airdropId, amount, airdrop.token_decimals);
 
-                // Only insert 'verified' for Quest. Loop entries are managed on claim.
+                // Insert or Update status and transaction hash in DB
                 if (airdrop.type === 'Quest') {
                     await sql`
-                        INSERT INTO quest_entries (airdrop_id, user_address, status) 
-                        VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified')
-                        ON CONFLICT (airdrop_id, user_address) DO NOTHING;
+                        INSERT INTO quest_entries (airdrop_id, user_address, status, transaction_hash) 
+                        VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified', ${transactionHash})
+                        ON CONFLICT (airdrop_id, user_address) 
+                        DO UPDATE SET status = 'verified', transaction_hash = ${transactionHash}, updated_at = NOW();
+                    `;
+                } else if (airdrop.type === 'Loop') {
+                    // For Loop, we store the action hash. We set claim_count to 0 initially if it doesn't exist,
+                    // and use a default old timestamp so we don't block the immediate claim attempt.
+                    // The actual cooldown is enforced by 'last_claimed_at' which is updated in 'updateClaim'.
+                    await sql`
+                        INSERT INTO loop_entries (airdrop_id, user_address, status, transaction_hash, claim_count, last_claimed_at)
+                        VALUES (${airdropId}, ${getAddress(userAddress)}, 'verified', ${transactionHash}, 0, '1970-01-01 00:00:00')
+                        ON CONFLICT (airdrop_id, user_address)
+                        DO UPDATE SET transaction_hash = ${transactionHash}, updated_at = NOW();
                     `;
                 }
                 
