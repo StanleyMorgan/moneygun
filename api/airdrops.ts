@@ -3,7 +3,7 @@ console.log('[Vercel API] airdrops.ts module loading.');
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, db } from '@vercel/postgres';
 import { MerkleTree } from 'merkletreejs';
-import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic, Log } from 'viem';
+import { getAddress, parseUnits, keccak256 as viemKeccak256, isAddress, encodePacked, toHex, pad, createPublicClient, http, Hex, Chain, LogTopic } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, monadTestnet, celo, celoSepolia } from 'viem/chains';
 import { WhitelistEntry } from '../types';
