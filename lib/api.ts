@@ -1,3 +1,4 @@
+
 import { Airdrop, WhitelistEntry, Network, Token } from '../types';
 
 // Helper to convert snake_case object keys to camelCase.
@@ -69,6 +70,18 @@ export const getTokens = async (networkKey: string): Promise<Token[]> => {
   }
   const data = await response.json();
   return convertKeysToCamelCase(data);
+};
+
+/**
+ * Checks if a user is whitelisted to create airdrops and gets their limit.
+ */
+export const getCreatorStatus = async (userAddress: string): Promise<{ allowed: boolean; limit: number; count: number }> => {
+    const response = await fetch(`/api/airdrops?action=getCreatorStatus&userAddress=${userAddress}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to check creator status' }));
+        throw new Error(errorData.message);
+    }
+    return response.json();
 };
 
 /**

@@ -62,6 +62,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ verifierAddress });
         }
 
+        // --- Check Creator Status (Whitelist & Limits) ---
+        if (action === 'getCreatorStatus') {
+            if (!userAddress || typeof userAddress !== 'string' || !isAddress(userAddress)) {
+                return res.status(400).json({ message: 'Invalid user address.' });
+            }
+            try {
+                const normalizedAddress = getAddress(userAddress);
+                
+                // Check whitelist
+                const { rows: whitelistRows } = await sql`
+                    SELECT creation_limit FROM allowed_creators WHERE LOWER(address) = LOWER(${normalizedAddress});
+                `;
+
+                if (whitelistRows.length === 0) {
+                    return res.status(200).json({ allowed: false, limit: 0, count: 0 });
+                }
+
+                const creationLimit = whitelistRows[0].creation_limit;
+
+                // Check count
+                const { rows: countRows } = await sql`
+                    SELECT COUNT(*) FROM airdrops WHERE creator_address = ${normalizedAddress};
+                `;
+                const currentCount = parseInt(countRows[0].count, 10);
+
+                return res.status(200).json({ 
+                    allowed: true, 
+                    limit: creationLimit, 
+                    count: currentCount 
+                });
+
+            } catch (error) {
+                console.error('Creator status check error:', error);
+                return res.status(500).json({ message: 'Internal server error checking creator status.' });
+            }
+        }
+
         // --- Eligibility Check for a specific user and airdrop ---
         if (airdropId && userAddress) {
              try {

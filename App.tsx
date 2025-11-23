@@ -6,7 +6,7 @@ import NewAirdropForm from './components/NewAirdropForm';
 import { Airdrop, WhitelistEntry, Network } from './types';
 import { sdk } from '@farcaster/miniapp-sdk';
 import Footer from './components/Footer';
-import { getAirdrops, createAirdrop, getNetworks } from './lib/api';
+import { getAirdrops, createAirdrop, getNetworks, getCreatorStatus } from './lib/api';
 import { useAccount } from 'wagmi';
 
 const App: React.FC = () => {
@@ -15,6 +15,9 @@ const App: React.FC = () => {
   const [airdrops, setAirdrops] = useState<Airdrop[]>([]);
   const [networks, setNetworks] = useState<Network[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // State for creator permissions
+  const [creatorStatus, setCreatorStatus] = useState<{ allowed: boolean; limit: number; count: number }>({ allowed: false, limit: 0, count: 0 });
+  
   const { address, isConnected } = useAccount();
 
   useEffect(() => {
@@ -59,11 +62,23 @@ const App: React.FC = () => {
 
   }, []);
   
-  // We no longer strictly enforce a limit on the client side (e.g. < 3).
-  // Instead, we allow the user to attempt creation, and the backend API
-  // will enforce the whitelist and specific limits for that address.
-  const canCreateAirdrop = true;
-
+  // Fetch creator status when address changes
+  useEffect(() => {
+      const fetchStatus = async () => {
+          if (isConnected && address) {
+              try {
+                  const status = await getCreatorStatus(address);
+                  setCreatorStatus(status);
+              } catch (error) {
+                  console.error("Failed to fetch creator status:", error);
+                  setCreatorStatus({ allowed: false, limit: 0, count: 0 });
+              }
+          } else {
+              setCreatorStatus({ allowed: false, limit: 0, count: 0 });
+          }
+      };
+      fetchStatus();
+  }, [address, isConnected]);
 
   const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
     if (!address) {
@@ -77,11 +92,12 @@ const App: React.FC = () => {
       };
       const newAirdrop = await createAirdrop(airdropPayload);
       setAirdrops(prevAirdrops => [newAirdrop, ...prevAirdrops]);
+      // Update local creator count immediately to reflect the new creation in UI state
+      setCreatorStatus(prev => ({ ...prev, count: prev.count + 1 }));
       setView('dashboard');
       setDashboardTab('manage');
     } catch (error) {
       console.error("Failed to create airdrop:", error);
-      // The API now returns specific whitelist/limit errors which will be displayed here.
       alert(`Failed to create airdrop: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [address]);
@@ -96,13 +112,20 @@ const App: React.FC = () => {
 
   const handleDeleteAirdrop = useCallback((airdropId: number) => {
     setAirdrops(prevAirdrops => prevAirdrops.filter(ad => ad.id !== airdropId));
+    // Decrease local count if deleted (optional, strict consistency might require refetch)
+    setCreatorStatus(prev => ({ ...prev, count: Math.max(0, prev.count - 1) }));
   }, []);
 
+  const canCreate = isConnected && creatorStatus.allowed && (creatorStatus.count < creatorStatus.limit);
+  const canManage = isConnected && creatorStatus.allowed;
+
   const handleCreateNew = () => {
-    if (canCreateAirdrop) {
+    if (canCreate) {
       setView('new-airdrop');
+    } else if (!creatorStatus.allowed) {
+        alert("You are not whitelisted to create airdrops.");
     } else {
-      alert("You’ve reached the maximum limit of 3 airdrops.");
+        alert(`You reached your creation limit of ${creatorStatus.limit}.`);
     }
   };
 
@@ -111,8 +134,10 @@ const App: React.FC = () => {
     setDashboardTab('earn');
   };
   const handleManageClick = () => {
-    setView('dashboard');
-    setDashboardTab('manage');
+    if (canManage) {
+        setView('dashboard');
+        setDashboardTab('manage');
+    }
   };
 
   const renderContent = () => {
@@ -150,24 +175,26 @@ const App: React.FC = () => {
         </button>
         <button
           onClick={handleManageClick}
+          disabled={!canManage}
+          title={!canManage ? "Only whitelisted creators can manage airdrops" : ""}
           className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
             view === 'dashboard' && dashboardTab === 'manage'
               ? 'bg-purple-600 text-white'
               : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          } ${!canManage ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           Manage
         </button>
         {isConnected && (
           <button
             onClick={handleCreateNew}
-            disabled={!canCreateAirdrop}
-            title="Create a new airdrop"
+            disabled={!canCreate}
+            title={!creatorStatus.allowed ? "Not whitelisted" : (creatorStatus.count >= creatorStatus.limit ? "Limit reached" : "Create a new airdrop")}
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
               view === 'new-airdrop'
                 ? 'bg-purple-600 text-white'
                 : 'text-slate-600 hover:bg-slate-100'
-            } ${!canCreateAirdrop ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Create
           </button>
