@@ -345,21 +345,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         else { // Create Airdrop
             const client = await db.connect();
             try {
-                const { type } = req.body;
+                const { type, creatorAddress } = req.body;
+
+                // --- Check Whitelist & Limits ---
+                if (!creatorAddress || !isAddress(creatorAddress)) {
+                    client.release();
+                    return res.status(400).json({ message: 'Invalid creator address.' });
+                }
+                
+                const normalizedCreator = getAddress(creatorAddress);
+
+                // 1. Check if user is whitelisted
+                const { rows: whitelistRows } = await client.sql`
+                    SELECT creation_limit FROM allowed_creators WHERE address = ${normalizedCreator};
+                `;
+
+                if (whitelistRows.length === 0) {
+                    client.release();
+                    return res.status(403).json({ message: 'Access denied: Your wallet is not whitelisted to create airdrops.' });
+                }
+
+                const creationLimit = whitelistRows[0].creation_limit;
+
+                // 2. Check limit against existing airdrops
+                const { rows: countRows } = await client.sql`
+                    SELECT COUNT(*) FROM airdrops WHERE creator_address = ${normalizedCreator};
+                `;
+                
+                const currentCount = parseInt(countRows[0].count, 10);
+
+                if (currentCount >= creationLimit) {
+                    client.release();
+                    return res.status(403).json({ message: `Creation limit reached. You can only create ${creationLimit} airdrops.` });
+                }
+                // --- End Whitelist Check ---
+
                 await client.sql`BEGIN`;
                 let createdAirdrop;
 
                 const defaultImage = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
 
                 if (type === 'Whitelist') {
-                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, whitelist, contractAddress, merkleRoot, recipientCount, maxReward } = req.body;
+                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, startTime, endTime, whitelist, contractAddress, merkleRoot, recipientCount, maxReward } = req.body;
                     
                     const imageUrl = image || defaultImage;
                     if (!imageUrl.endsWith('.svg')) {
+                        await client.sql`ROLLBACK`;
                         return res.status(400).json({ message: 'Image URL must be a link to an SVG file.' });
                     }
 
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !merkleRoot) return res.status(400).json({ message: 'Missing required fields for Whitelist airdrop.' });
+                    if (!name || !tokenAddress || !totalAmount || !startTime || !endTime || !contractAddress || !merkleRoot) {
+                        await client.sql`ROLLBACK`;
+                        return res.status(400).json({ message: 'Missing required fields for Whitelist airdrop.' });
+                    }
                     
                     const { rows } = await client.sql`
                         INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, creator_address, start_time, end_time, contract_address, merkle_root, max_reward, created_at)
@@ -378,36 +416,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await client.sql`INSERT INTO whitelist_entries (airdrop_id, user_address, amount, proof) VALUES (${createdAirdrop.id}, ${entry.address}, ${Number(entry.amount)}, ${JSON.stringify(proof)});`;
                     }
                 } else if (type === 'Quest') {
-                     const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex } = req.body;
+                     const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex } = req.body;
                      
                      const imageUrl = image || defaultImage;
                      if (!imageUrl.endsWith('.svg')) {
+                        await client.sql`ROLLBACK`;
                         return res.status(400).json({ message: 'Image URL must be a link to an SVG file.' });
                     }
                     
                      const verifierAddress = process.env.VERIFIER_ADDRESS;
                      if (!verifierAddress) {
+                        await client.sql`ROLLBACK`;
                         throw new Error("Verifier address is not configured on the server.");
                      }
-                    if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex) return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                    if (!name || !tokenAddress || !totalAmount || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex) {
+                        await client.sql`ROLLBACK`;
+                        return res.status(400).json({ message: 'Missing required fields for Quest airdrop.' });
+                    }
                      const { rows } = await client.sql`
                         INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topic0, user_topic_index, created_at)
                         VALUES (${name}, ${description || null}, ${imageUrl}, ${action || null}, 'Quest', ${tokenAddress}, ${tokenSymbol || null}, ${tokenDecimals || 18}, ${network}, ${Number(totalAmount)}, ${status}, ${recipientCount}, ${Number(maxReward)}, ${creatorAddress}, ${new Date(startTime).toISOString()}, ${new Date(endTime).toISOString()}, ${contractAddress}, ${targetContract}, ${topic0}, ${userTopicIndex}, NOW())
                         RETURNING *;`;
                     createdAirdrop = rows[0];
                 } else if (type === 'Loop') {
-                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, creatorAddress, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex, loopInterval } = req.body;
+                    const { name, description, image, action, tokenAddress, tokenSymbol, tokenDecimals, network, totalAmount, status, startTime, endTime, contractAddress, recipientCount, maxReward, targetContract, topic0, userTopicIndex, loopInterval } = req.body;
                     
                     const imageUrl = image || defaultImage;
                     if (!imageUrl.endsWith('.svg')) {
+                       await client.sql`ROLLBACK`;
                        return res.status(400).json({ message: 'Image URL must be a link to an SVG file.' });
                    }
                    
                     const verifierAddress = process.env.VERIFIER_ADDRESS;
                     if (!verifierAddress) {
+                       await client.sql`ROLLBACK`;
                        throw new Error("Verifier address is not configured on the server.");
                     }
-                   if (!name || !tokenAddress || !totalAmount || !creatorAddress || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex || !loopInterval) return res.status(400).json({ message: 'Missing required fields for Loop airdrop.' });
+                   if (!name || !tokenAddress || !totalAmount || !startTime || !endTime || !contractAddress || !topic0 || !targetContract || !userTopicIndex || !loopInterval) {
+                        await client.sql`ROLLBACK`;
+                        return res.status(400).json({ message: 'Missing required fields for Loop airdrop.' });
+                   }
                     
                    const { rows } = await client.sql`
                        INSERT INTO airdrops (name, description, image, action, type, token_address, token_symbol, token_decimals, network, total_amount, status, recipient_count, max_reward, creator_address, start_time, end_time, contract_address, target_contract, topic0, user_topic_index, loop_interval, created_at)
@@ -415,6 +463,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                        RETURNING *;`;
                    createdAirdrop = rows[0];
                 } else {
+                    await client.sql`ROLLBACK`;
                     return res.status(400).json({ message: 'Invalid airdrop type.' });
                 }
 

@@ -60,11 +60,10 @@ const App: React.FC = () => {
 
   }, []);
   
-  const userAirdropsCount = isConnected && address
-    ? airdrops.filter(ad => ad.creatorAddress && getAddress(ad.creatorAddress) === getAddress(address)).length
-    : 0;
-  // FIX: Temporarily disabled creation by setting limit to 0 (was 3).
-  const canCreateAirdrop = userAirdropsCount < 0;
+  // We no longer strictly enforce a limit on the client side (e.g. < 3).
+  // Instead, we allow the user to attempt creation, and the backend API
+  // will enforce the whitelist and specific limits for that address.
+  const canCreateAirdrop = true;
 
 
   const handleAddAirdrop = useCallback(async (airdropData: Omit<Airdrop, 'id' | 'createdAt' | 'creatorAddress'> & { whitelist?: WhitelistEntry[] }) => {
@@ -83,6 +82,7 @@ const App: React.FC = () => {
       setDashboardTab('manage');
     } catch (error) {
       console.error("Failed to create airdrop:", error);
+      // The API now returns specific whitelist/limit errors which will be displayed here.
       alert(`Failed to create airdrop: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [address]);
@@ -163,7 +163,7 @@ const App: React.FC = () => {
           <button
             onClick={handleCreateNew}
             disabled={!canCreateAirdrop}
-            title={!canCreateAirdrop ? "You’ve reached the maximum limit of 3 airdrops." : "Create a new airdrop"}
+            title="Create a new airdrop"
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
               view === 'new-airdrop'
                 ? 'bg-purple-600 text-white'
