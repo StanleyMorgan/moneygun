@@ -325,7 +325,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return logTopic.toLowerCase() === paddedUserAddress.toLowerCase();
                 });
 
-                if (!validLog) return res.status(400).json({ message: 'Quest completion event not found on-chain for this user.' });
+                if (!validLog) return res.status(400).json({ message: 'Quest not completed.' });
 
                 const transactionHash = validLog.transactionHash;
                 const amount = String(airdrop.max_reward);
