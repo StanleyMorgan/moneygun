@@ -1,3 +1,4 @@
+
 import { ImageResponse } from '@vercel/og';
 import { sql } from '@vercel/postgres';
 
@@ -19,6 +20,7 @@ async function getFontData() {
 export default async function handler(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id') || req.url.split('/').pop();
+  const amountParam = searchParams.get('amount');
   const airdropId = parseInt(id || '', 10);
 
   if (isNaN(airdropId)) {
@@ -35,7 +37,21 @@ export default async function handler(req: Request) {
   }
 
   const data = airdropResult.rows[0];
-  const rewardValue = data.max_reward ? new Intl.NumberFormat('en-US').format(data.max_reward) : 'Tokens';
+  
+  let rewardValue;
+  if (amountParam) {
+      // If amount is provided in URL, prioritize it
+      const num = Number(amountParam);
+      if (!isNaN(num)) {
+          rewardValue = new Intl.NumberFormat('en-US', { maximumFractionDigits: 5 }).format(num);
+      } else {
+          rewardValue = amountParam;
+      }
+  } else {
+      // Fallback to max_reward from DB
+      rewardValue = data.max_reward ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 5 }).format(data.max_reward) : 'Tokens';
+  }
+
   const rewardText = `${rewardValue} ${data.token_symbol || ''}`;
   const image = data.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
   const bg = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';

@@ -1,3 +1,4 @@
+
 export const config = {
   runtime: 'edge',
 };
@@ -8,6 +9,7 @@ export default async function handler(req: Request) {
     const url = new URL(req.url);
     const idParam = url.pathname.split('/').pop();
     const airdropId = Number(idParam);
+    const amount = url.searchParams.get('amount');
 
     if (isNaN(airdropId)) {
       return new Response('Airdrop ID must be a number.', { status: 400 });
@@ -18,11 +20,15 @@ export default async function handler(req: Request) {
     const origin = host ? `https://${host}` : 'https://moneygun-mini.vercel.app';
 
     // Define the image URL and app URL
-    const imageUrl = `${origin}/api/share/image/${airdropId}`;
+    let imageUrl = `${origin}/api/share/image/${airdropId}`;
+    if (amount) {
+        imageUrl += `?amount=${encodeURIComponent(amount)}`;
+    }
+    
     const appUrl = `${origin}/`;
 
     // Example share text for Farcaster composer links
-    const shareText = `I just claimed 1 USDC in Moneygun MiniApp`;
+    const shareText = `I just claimed a reward in Moneygun MiniApp`;
 
     // MiniApp embed metadata
     const miniAppEmbed = {

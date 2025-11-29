@@ -105,6 +105,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
         isQuestButtonDisabled,
         isSuccessModalOpen,
         nextClaimAt,
+        rewardAmount,
         handleClaim,
         handleQuestVerify,
         handleDelete,
@@ -158,6 +159,11 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     }
 
     const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    const formatReward = (amount: string | number) => {
+        const num = Number(amount);
+        if (isNaN(num)) return amount;
+        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 5 }).format(num);
+    };
     
     let rewardString = 'a reward';
     if (airdrop.maxReward && airdrop.tokenSymbol) {
@@ -167,7 +173,13 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     }
 
     const shareText = `Claimed ${rewardString} in the "${airdrop.name}" airdrop — Moneygun makes it fun!`;
-    const shareUrl = `https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(`${window.location.origin}/api/share/frame/${airdrop.id}`)}`;
+    
+    let frameUrl = `${window.location.origin}/api/share/frame/${airdrop.id}`;
+    if (rewardAmount) {
+        frameUrl += `?amount=${rewardAmount}`;
+    }
+    
+    const shareUrl = `https://farcaster.xyz/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(frameUrl)}`;
 
     // Helper to render the image, wrapped in a link if action exists
     const renderImage = () => {
@@ -287,7 +299,7 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
                         <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
                         <h2 id="success-modal-title" className="text-xl font-semibold text-slate-800">Congratulations!</h2>
                         <p className="mt-2 text-sm text-slate-600">
-                            You have successfully claimed your airdrop.
+                            You have successfully claimed {rewardAmount ? formatReward(rewardAmount) : ''} {airdrop.tokenSymbol}.
                         </p>
                         
                         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">

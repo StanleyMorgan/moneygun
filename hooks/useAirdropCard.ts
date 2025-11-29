@@ -131,7 +131,7 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
     const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'switching' | 'withdrawing' | 'waiting' | 'success' | 'error'>('idle');
     const [withdrawError, setWithdrawError] = useState('');
     // FIX: Added 'claimed' to Whitelist eligibility status to match Quest logic and unified DB schema.
-    const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'claimed' | 'error', error: string | null }>({ status: 'idle', error: null });
+    const [eligibility, setEligibility] = useState<{ status: 'idle' | 'checking' | 'eligible' | 'ineligible' | 'claimed' | 'error', amount?: string, error: string | null }>({ status: 'idle', error: null });
     const [questEligibility, setQuestEligibility] = useState<{ status: 'idle' | 'checking' | 'verified' | 'claimed' | 'not_started' | 'error' | 'eligible', error: string | null }>({ status: 'idle', error: null });
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [nextClaimAt, setNextClaimAt] = useState<Date | null>(null);
@@ -520,10 +520,11 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
                     const response = await fetch(`/api/airdrops?airdropId=${airdrop.id}&userAddress=${address}`);
                     if (response.ok) {
                         const data = await response.json();
+                        // data includes: { status, amount, proof }
                         if (data.status === 'claimed') {
-                            setEligibility({ status: 'claimed', error: null });
+                            setEligibility({ status: 'claimed', amount: data.amount, error: null });
                         } else {
-                            setEligibility({ status: 'eligible', error: null });
+                            setEligibility({ status: 'eligible', amount: data.amount, error: null });
                         }
                     }
                     else if (response.status === 404) setEligibility({ status: 'ineligible', error: null });
@@ -821,6 +822,8 @@ export const useAirdropCard = ({ airdrop, onAirdropUpdate, viewAsOwner, onAirdro
         eligibility,
         claimStatus,
         claimButtonText: claimButtonText(),
+        // Determine the actual amount claimed for the share message
+        rewardAmount: airdrop.type === AirdropType.Whitelist ? eligibility.amount : (questAmount || (airdrop.maxReward ? String(airdrop.maxReward) : undefined)),
         
         // Quest / Loop
         questEligibility,
