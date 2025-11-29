@@ -52,7 +52,7 @@ export default async function handler(req: Request) {
       rewardValue = data.max_reward ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 5 }).format(data.max_reward) : 'Tokens';
   }
 
-  const rewardText = `${rewardValue} ${data.token_symbol || ''}`;
+  const rewardText = ` ${rewardValue} ${data.token_symbol || ''}`;
   const image = data.image || 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/money.svg';
   const bg = 'https://raw.githubusercontent.com/StanleyMorgan/graphics/main/app/moneygun/background.png';
 
