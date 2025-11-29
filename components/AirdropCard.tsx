@@ -166,7 +166,9 @@ const AirdropCard: React.FC<AirdropCardProps> = (props) => {
     };
     
     let rewardString = 'a reward';
-    if (airdrop.maxReward && airdrop.tokenSymbol) {
+    if (rewardAmount && airdrop.tokenSymbol) {
+        rewardString = `${formatReward(rewardAmount)} ${airdrop.tokenSymbol}`;
+    } else if (airdrop.maxReward && airdrop.tokenSymbol) {
       rewardString = `${formatNumber(airdrop.maxReward)} ${airdrop.tokenSymbol}`;
     } else if (airdrop.tokenSymbol) {
       rewardString = `some ${airdrop.tokenSymbol}`;
